@@ -24,7 +24,7 @@ classifiers = [
 ]
 dependencies = ["PySide6-Essentials>=6.10,<7"]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = ["pyinstaller>=6.11,<7"]
 
 [project.gui-scripts]
