@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the application icon (PNG + multi-resolution ICO)."""
+"""Generate the application icon (PNG + multi-resolution ICO/ICNS) from icon.svg."""
 
 from __future__ import annotations
 
@@ -7,36 +7,29 @@ import struct
 from pathlib import Path
 
 from PySide6.QtCore import QRectF, Qt
-from PySide6.QtGui import QColor, QImage, QPainter, QPen
+from PySide6.QtGui import QImage, QPainter
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QApplication
 
 ROOT = Path(__file__).resolve().parents[1]
 RESOURCES = ROOT / "vcolor" / "resources"
+SVG_SOURCE = RESOURCES / "icon.svg"
 
 
 def render(size: int) -> QImage:
+    renderer = QSvgRenderer(str(SVG_SOURCE))
+    if not renderer.isValid():
+        raise RuntimeError(f"Could not load {SVG_SOURCE}")
+
     image = QImage(size, size, QImage.Format.Format_ARGB32)
     image.fill(Qt.GlobalColor.transparent)
     painter = QPainter(image)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
 
-    rect = QRectF(size * 0.04, size * 0.04, size * 0.92, size * 0.92)
-    painter.setPen(Qt.PenStyle.NoPen)
-    painter.setBrush(QColor("#3B82F6"))
-    painter.drawRoundedRect(rect, size * 0.23, size * 0.23)
-
-    # Three overlapping swatches, suggesting a palette.
-    painter.setPen(QPen(QColor(255, 255, 255, 40), max(1.0, size * 0.008)))
-    painter.setBrush(QColor("#FFFFFF"))
-    painter.drawEllipse(QRectF(size * 0.24, size * 0.27, size * 0.29, size * 0.29))
-    painter.setBrush(QColor("#BFDBFE"))
-    painter.drawEllipse(QRectF(size * 0.45, size * 0.43, size * 0.29, size * 0.29))
-    painter.setBrush(QColor("#1E3A8A"))
-    painter.drawEllipse(QRectF(size * 0.27, size * 0.56, size * 0.22, size * 0.22))
-
-    # Small highlight cutout.
-    painter.setBrush(QColor("#3B82F6"))
-    painter.drawEllipse(QRectF(size * 0.48, size * 0.61, size * 0.13, size * 0.13))
+    # Leave a small transparent margin so platform icon masks do not clip the tile.
+    margin = size * 0.04
+    rect = QRectF(margin, margin, size - 2 * margin, size - 2 * margin)
+    renderer.render(painter, rect)
 
     painter.end()
     return image

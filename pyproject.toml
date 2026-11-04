@@ -38,6 +38,7 @@ vcolor = [
     "resources/*.png",
     "resources/*.ico",
     "resources/*.icns",
+    "resources/*.svg",
     "resources/fonts/*.ttf",
     "resources/fonts/*.txt",
 ]

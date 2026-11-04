@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">vColor</title>
+  <desc id="desc">Four rounded color chips stacked like paint swatches on a dark rounded tile.</desc>
+  <rect width="512" height="512" rx="112" fill="#0F131C"/>
+  <rect x="1" y="1" width="510" height="510" rx="111" fill="none" stroke="#FFFFFF" stroke-opacity="0.07"/>
+  <g transform="rotate(-8 256 256)">
+    <rect x="150" y="142" width="238" height="52" rx="26" fill="#0A84FF"/>
+    <rect x="126" y="208" width="276" height="52" rx="26" fill="#22D3EE"/>
+    <rect x="138" y="274" width="252" height="52" rx="26" fill="#FFD166"/>
+    <rect x="158" y="340" width="220" height="52" rx="26" fill="#FF5C8A"/>
+  </g>
+</svg>

@@ -97,6 +97,17 @@ For Linux desktop integration, copy the bundled folder somewhere stable and
 install `packaging/linux/vcolor.desktop` as `vcolor.desktop` in your applications
 directory, pointing `Exec=` at the `vColor` executable.
 
+## App icon
+
+The icon source is `vcolor/resources/icon.svg`. After editing it, regenerate the
+PNG, ICO, and ICNS files:
+
+```bash
+uv run python scripts/make_icon.py
+```
+
+Rebuild the desktop bundle afterward so the new icon is embedded in the EXE.
+
 ## Project layout
 
 ```text
