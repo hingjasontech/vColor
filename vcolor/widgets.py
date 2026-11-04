@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import (
@@ -14,6 +15,7 @@ from PySide6.QtGui import (
     QPainterPath,
     QPen,
 )
+from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import (
     QAbstractButton,
     QComboBox,
@@ -489,24 +491,46 @@ class FormatComboBox(QComboBox):
 
 
 class EmptyArt(QWidget):
+    """The app mark, rendered from the same SVG as the application icon."""
+
+    _FALLBACK_BARS = [
+        (150, 142, 238, "#0A84FF"),
+        (126, 208, 276, "#22D3EE"),
+        (138, 274, 252, "#FFD166"),
+        (158, 340, 220, "#FF5C8A"),
+    ]
+
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedSize(104, 104)
+        icon_path = Path(__file__).resolve().parent / "resources" / "icon.svg"
+        self._renderer = QSvgRenderer(str(icon_path))
 
     def paintEvent(self, event) -> None:  # type: ignore[no-untyped-def]
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor("#2D2D2D"))
-        painter.drawRoundedRect(QRectF(0, 0, 104, 104), 28, 28)
 
-        colors = ["#3B82F6", "#A78BFA", "#F472B6"]
-        positions = [(34, 36), (60, 48), (42, 64)]
-        for (x, y), color in zip(positions, colors, strict=True):
+        if self._renderer.isValid():
+            self._renderer.render(painter, QRectF(self.rect()))
+            return
+
+        self._paint_fallback(painter)
+
+    def _paint_fallback(self, painter: QPainter) -> None:
+        scale = self.width() / 512
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#0F131C"))
+        painter.drawRoundedRect(QRectF(self.rect()), 104 * 0.22, 104 * 0.22)
+        painter.translate(self.width() / 2, self.height() / 2)
+        painter.rotate(-8)
+        painter.translate(-self.width() / 2, -self.height() / 2)
+        for x, y, width, color in self._FALLBACK_BARS:
             painter.setBrush(QColor(color))
-            painter.drawEllipse(QRectF(x, y, 24, 24))
-        painter.setBrush(QColor("#2D2D2D"))
-        painter.drawEllipse(QRectF(52, 62, 15, 15))
+            painter.drawRoundedRect(
+                QRectF(x * scale, y * scale, width * scale, 52 * scale),
+                26 * scale,
+                26 * scale,
+            )
 
 
 class EmptyState(QWidget):
