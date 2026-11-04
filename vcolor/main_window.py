@@ -31,7 +31,7 @@ from .color_utils import format_color, slugify
 from .models import AppData, ColorEntry, PaletteStore, Project, StoreError
 from .widgets import (
     AddColorButton,
-    ColorRow,
+    ColorItem,
     EmptyState,
     FormatComboBox,
     ProjectItem,
@@ -311,16 +311,16 @@ class MainWindow(QMainWindow):
             self.body_layout.addStretch(1)
         else:
             for color in project.colors:
-                row = ColorRow(
+                item = ColorItem(
                     color.id,
                     color.name,
                     format_color(color.hex, self.current_format),
                     color.hex,
                 )
-                row.copyRequested.connect(self.copy_color)
-                row.editRequested.connect(self.edit_color)
-                row.deleteRequested.connect(self.delete_color)
-                self.body_layout.addWidget(row)
+                item.copyRequested.connect(self.copy_color)
+                item.editRequested.connect(self.edit_color)
+                item.deleteRequested.connect(self.delete_color)
+                self.body_layout.addWidget(item)
             self.body_layout.addStretch(1)
 
     def _format_changed(self, index: int) -> None:

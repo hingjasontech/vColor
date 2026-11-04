@@ -13,8 +13,24 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from vcolor import theme  # noqa: E402
 from vcolor.main_window import MainWindow  # noqa: E402
-from vcolor.models import PaletteStore, seed_data  # noqa: E402
-from vcolor.widgets import ColorRow, EmptyState  # noqa: E402
+from vcolor.models import AppData, ColorEntry, PaletteStore, Project  # noqa: E402
+from vcolor.widgets import ColorItem, ColorRow, EmptyState  # noqa: E402
+
+
+def sample_data() -> AppData:
+    website = Project(
+        name="Website",
+        colors=[
+            ColorEntry(name="Apple blue", hex="#0a84ff"),
+            ColorEntry(name="Ink", hex="#123123"),
+        ],
+    )
+    mobile = Project(name="Mobile app")
+    brand = Project(name="Brand")
+    return AppData(
+        projects=[website, mobile, brand],
+        active_project_id=website.id,
+    )
 
 
 class WindowSmokeTests(unittest.TestCase):
@@ -35,7 +51,7 @@ class WindowSmokeTests(unittest.TestCase):
         self.store = PaletteStore(self.path)
         self.window = MainWindow(self.store)
         self.window._loaded = True
-        self.window.set_data(seed_data())
+        self.window.set_data(sample_data())
         self.window.resize(1280, 800)
         self.window.show()
         self.app.processEvents()
@@ -50,9 +66,19 @@ class WindowSmokeTests(unittest.TestCase):
         self.assertTrue(self.window.format_combo.isEnabled())
         self.assertEqual(len(self.window.body.findChildren(ColorRow)), 2)
         self.assertEqual(self.window.format_combo.currentText(), "HEX")
-        self.assertEqual(
-            self.window.body.findChildren(ColorRow)[0].copy_button.text(), "Copy"
-        )
+        items = self.window.body.findChildren(ColorItem)
+        self.assertEqual(items[0].copy_button.text(), "Copy")
+        self.assertIs(items[0].copy_button.parentWidget(), items[0])
+        self.assertIs(items[0].row.parentWidget(), items[0])
+
+    def test_first_run_is_empty(self) -> None:
+        self.window.set_data(AppData())
+        self.app.processEvents()
+        self.assertEqual(self.window.data.projects, [])
+        self.assertEqual(self.window.body.findChildren(ColorRow), [])
+        self.assertEqual(len(self.window.body.findChildren(EmptyState)), 1)
+        self.assertFalse(self.window.format_combo.isEnabled())
+        self.assertFalse(self.window.add_button.isVisible())
 
     def test_format_change_updates_rows(self) -> None:
         self.window.format_combo.setCurrentText("RGB")
@@ -84,6 +110,13 @@ class WindowSmokeTests(unittest.TestCase):
         self.app.processEvents()
         color_id = self.window.active_project.colors[0].id
         self.window.copy_color(color_id)
+        self.assertIn("hsl(", QApplication.clipboard().text())
+
+    def test_copy_button_uses_selected_format(self) -> None:
+        self.window.format_combo.setCurrentText("HSL")
+        self.app.processEvents()
+        item = self.window.body.findChildren(ColorItem)[0]
+        item.copy_button.click()
         self.assertIn("hsl(", QApplication.clipboard().text())
 
     def test_delete_and_undo(self) -> None:

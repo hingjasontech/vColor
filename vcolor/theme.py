@@ -73,7 +73,7 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
 
     QPushButton#CopyButton {{
         background: #3A3A3A;
-        border: none;
+        border: 1px solid #5A5A5A;
         border-radius: 18px;
         color: {TEXT};
         font-size: 14px;
@@ -85,10 +85,12 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
         padding: 0;
     }}
     QPushButton#CopyButton:hover {{
-        background: #444444;
+        background: #454545;
+        border-color: #6A6A6A;
     }}
     QPushButton#CopyButton:pressed {{
-        background: #333333;
+        background: #323232;
+        border-color: #505050;
     }}
 
     QComboBox#FormatSelect {{

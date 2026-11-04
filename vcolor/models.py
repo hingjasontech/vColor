@@ -158,23 +158,6 @@ class AppData:
         return data
 
 
-def seed_data() -> AppData:
-    """Create a small, useful first-run palette."""
-    website = Project(
-        name="Website",
-        colors=[
-            ColorEntry(name="Apple blue", hex="#0a84ff"),
-            ColorEntry(name="Ink", hex="#123123"),
-        ],
-    )
-    mobile = Project(name="Mobile app")
-    brand = Project(name="Brand")
-    return AppData(
-        projects=[website, mobile, brand],
-        active_project_id=website.id,
-    )
-
-
 class StoreError(RuntimeError):
     pass
 
@@ -182,14 +165,13 @@ class StoreError(RuntimeError):
 class PaletteStore:
     """Atomic JSON storage with a safe fallback for corrupt files."""
 
-    def __init__(self, path: Path, *, seed_if_missing: bool = True) -> None:
+    def __init__(self, path: Path) -> None:
         self.path = Path(path)
-        self.seed_if_missing = seed_if_missing
         self.last_backup_path: Path | None = None
 
     def load(self) -> AppData:
         if not self.path.exists():
-            return seed_data() if self.seed_if_missing else AppData()
+            return AppData()
 
         try:
             raw = json.loads(self.path.read_text(encoding="utf-8"))
@@ -206,7 +188,7 @@ class PaletteStore:
                 )
             else:
                 print(f"vColor: could not read {self.path}: {exc}", file=sys.stderr)
-            return seed_data() if self.seed_if_missing else AppData()
+            return AppData()
 
     def save(self, data: AppData) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)

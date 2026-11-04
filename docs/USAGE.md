@@ -11,7 +11,7 @@
 - Automatic saving with atomic JSON writes — no Save button needed.
 - Import colors from JSON, CSS, or GIMP `.gpl` palettes.
 - Export palettes as JSON, CSS custom properties, or GIMP `.gpl`.
-- First-run sample palette so the app is immediately explorable.
+- Starts with an empty workspace so you can create your own projects.
 - Bundled Inter font and custom-painted icons — no icon theme dependency.
 - Keyboard shortcuts and project context menus.
 - Native file dialogs and native color picker on each platform.
@@ -26,7 +26,8 @@
 | Import colors into active palette | `Ctrl/Cmd+I` |
 
 Double-click a project to rename it. Right-click a project for export/import.
-Click a color row to edit it; the Copy button copies the current display format.
+Click a color tile to edit it; the Copy button beside it copies the current
+display format.
 
 ## Where data lives
 
@@ -40,4 +41,4 @@ Pass `--data-dir /some/path` to use a different location.
 
 Saves are atomic: data is written to a temporary file, flushed to disk, and
 then moved into place. If the JSON file is corrupt, vColor moves it aside as
-`palettes.corrupt-<timestamp>.json` and starts from the sample palette.
+`palettes.corrupt-<timestamp>.json` and starts with an empty workspace.

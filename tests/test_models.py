@@ -10,7 +10,6 @@ from vcolor.models import (
     ColorEntry,
     PaletteStore,
     Project,
-    seed_data,
 )
 
 
@@ -24,7 +23,14 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(data.active_project_id, data.projects[0].id)
 
     def test_serialization_round_trip(self) -> None:
-        data = seed_data()
+        data = AppData(
+            projects=[
+                Project(
+                    name="One",
+                    colors=[ColorEntry(name="Blue", hex="#0a84ff")],
+                )
+            ]
+        )
         restored = AppData.from_dict(json.loads(json.dumps(data.to_dict())))
         self.assertEqual(len(restored.projects), len(data.projects))
         self.assertEqual(restored.projects[0].colors[0].hex, "#0a84ff")
@@ -34,8 +40,7 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(color.hex, "#000000")
 
     def test_display_format_round_trip(self) -> None:
-        data = seed_data()
-        data.display_format = "OKLCH"
+        data = AppData(display_format="OKLCH")
         restored = AppData.from_dict(json.loads(json.dumps(data.to_dict())))
         self.assertEqual(restored.display_format, "OKLCH")
 
@@ -54,38 +59,41 @@ class StoreTests(unittest.TestCase):
 
     def test_save_and_load(self) -> None:
         store = PaletteStore(self.path)
-        data = seed_data()
-        data.projects[0].colors.append(ColorEntry(name="Test", hex="#abcdef"))
+        data = AppData(
+            projects=[
+                Project(
+                    name="One",
+                    colors=[ColorEntry(name="Test", hex="#abcdef")],
+                )
+            ]
+        )
         store.save(data)
 
         loaded = PaletteStore(self.path).load()
-        self.assertEqual(loaded.projects[0].colors[-1].name, "Test")
-        self.assertEqual(loaded.projects[0].colors[-1].hex, "#abcdef")
+        self.assertEqual(loaded.projects[0].colors[0].name, "Test")
+        self.assertEqual(loaded.projects[0].colors[0].hex, "#abcdef")
 
-    def test_missing_file_seeds_data(self) -> None:
+    def test_missing_file_starts_empty(self) -> None:
         data = PaletteStore(self.path).load()
-        self.assertEqual(len(data.projects), 3)
-        self.assertIsNotNone(data.active_project)
-
-    def test_missing_file_can_be_empty(self) -> None:
-        data = PaletteStore(self.path, seed_if_missing=False).load()
         self.assertEqual(data.projects, [])
+        self.assertIsNone(data.active_project)
 
     def test_corrupt_file_is_backed_up(self) -> None:
         self.path.write_text("{not json", encoding="utf-8")
         store = PaletteStore(self.path)
         data = store.load()
-        self.assertEqual(len(data.projects), 3)
+        self.assertEqual(data.projects, [])
+        self.assertIsNone(data.active_project)
         self.assertIsNotNone(store.last_backup_path)
         self.assertTrue(store.last_backup_path.exists())
         self.assertFalse(self.path.exists())
 
     def test_saved_file_is_valid_json(self) -> None:
         store = PaletteStore(self.path)
-        store.save(seed_data())
+        store.save(AppData())
         parsed = json.loads(self.path.read_text(encoding="utf-8"))
         self.assertEqual(parsed["version"], 1)
-        self.assertIn("projects", parsed)
+        self.assertEqual(parsed["projects"], [])
 
 
 if __name__ == "__main__":

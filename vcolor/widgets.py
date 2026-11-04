@@ -258,25 +258,22 @@ class ColorRow(QFrame):
         layout.setContentsMargins(18, 0, 18, 0)
         layout.setSpacing(16)
 
-        self.copy_button = QPushButton("Copy")
-        self.copy_button.setObjectName("CopyButton")
-        self.copy_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.copy_button.setFixedSize(72, 36)
-        self.copy_button.setToolTip(f"Copy {value}")
-        self.copy_button.setAccessibleName("Copy color")
-        self.copy_button.clicked.connect(lambda: self.copyRequested.emit(self.color_id))
-        layout.addWidget(self.copy_button)
-
         self.swatch = ColorSwatch(color, 38)
         layout.addWidget(self.swatch)
 
         text_layout = QVBoxLayout()
         text_layout.setContentsMargins(0, 0, 0, 0)
-        text_layout.setSpacing(1)
+        text_layout.setSpacing(0)
         self.name_label = ElidedLabel(name)
         self.name_label.setObjectName("ColorName")
+        self.name_label.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignBottom
+        )
         self.value_label = ElidedLabel(value)
         self.value_label.setObjectName("ColorValue")
+        self.value_label.setAlignment(
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignTop
+        )
         text_layout.addWidget(self.name_label)
         text_layout.addWidget(self.value_label)
         layout.addLayout(text_layout, 1)
@@ -316,6 +313,45 @@ class ColorRow(QFrame):
             self.copyRequested.emit(self.color_id)
         elif chosen == delete:
             self.deleteRequested.emit(self.color_id)
+
+
+class ColorItem(QWidget):
+    """A color tile with its copy action placed outside the tile."""
+
+    copyRequested = Signal(str)
+    editRequested = Signal(str)
+    deleteRequested = Signal(str)
+
+    def __init__(
+        self,
+        color_id: str,
+        name: str,
+        value: str,
+        color: str,
+        parent: QWidget | None = None,
+    ) -> None:
+        super().__init__(parent)
+        self.color_id = color_id
+        self.setFixedHeight(72)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(12)
+
+        self.copy_button = QPushButton("Copy")
+        self.copy_button.setObjectName("CopyButton")
+        self.copy_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.copy_button.setFixedSize(72, 36)
+        self.copy_button.setToolTip(f"Copy {value}")
+        self.copy_button.setAccessibleName("Copy color")
+        self.copy_button.clicked.connect(lambda: self.copyRequested.emit(self.color_id))
+        layout.addWidget(self.copy_button, 0, Qt.AlignmentFlag.AlignVCenter)
+
+        self.row = ColorRow(color_id, name, value, color)
+        self.row.copyRequested.connect(self.copyRequested.emit)
+        self.row.editRequested.connect(self.editRequested.emit)
+        self.row.deleteRequested.connect(self.deleteRequested.emit)
+        layout.addWidget(self.row, 1)
 
 
 class ProjectItem(QFrame):
