@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vcolor"
+version = "1.0.0"
+description = "A fast, focused desktop color palette manager"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "vColor contributors" }]
+keywords = ["color", "palette", "design", "desktop", "qt"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: X11 Applications :: Qt",
+    "Intended Audience :: Designers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: MacOS",
+    "Operating System :: Microsoft :: Windows",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Topic :: Multimedia :: Graphics",
+]
+dependencies = ["PySide6-Essentials>=6.10,<7"]
+
+[project.optional-dependencies]
+dev = ["pyinstaller>=6.11,<7"]
+
+[project.gui-scripts]
+vcolor = "vcolor.app:main"
+
+[tool.setuptools.packages.find]
+include = ["vcolor*"]
+
+[tool.setuptools.package-data]
+vcolor = [
+    "resources/*.png",
+    "resources/*.ico",
+    "resources/*.icns",
+    "resources/fonts/*.ttf",
+    "resources/fonts/*.txt",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

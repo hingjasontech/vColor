@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=vColor
+GenericName=Color Palette Manager
+Comment=Create and manage color palettes
+Exec=vColor
+Icon=vColor
+Terminal=false
+Categories=Graphics;Design;
+Keywords=color;palette;design;swatch;
+StartupNotify=true
+StartupWMClass=vColor
