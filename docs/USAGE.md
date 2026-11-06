@@ -26,8 +26,8 @@
 | Import colors into active palette | `Ctrl/Cmd+I` |
 
 Double-click a project to rename it. Right-click a project for export/import.
-Click a color tile to edit it; the Copy button beside it copies the current
-display format.
+Click a color tile to copy its value in the current display format; use the
+pencil button on the tile to edit it, or the trash button to delete it.
 
 ## Where data lives
 

@@ -9,6 +9,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QTimer, Qt  # noqa: E402
 from PySide6.QtGui import QFontDatabase  # noqa: E402
+from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from vcolor import theme  # noqa: E402
@@ -118,6 +119,31 @@ class WindowSmokeTests(unittest.TestCase):
         item = self.window.body.findChildren(ColorItem)[0]
         item.copy_button.click()
         self.assertIn("hsl(", QApplication.clipboard().text())
+
+    def test_clicking_tile_copies_value(self) -> None:
+        self.window.format_combo.setCurrentText("RGB")
+        self.app.processEvents()
+        row = self.window.body.findChildren(ColorRow)[0]
+        QApplication.clipboard().clear()
+        QTest.mouseClick(
+            row,
+            Qt.MouseButton.LeftButton,
+            pos=row.rect().center(),
+        )
+        self.assertEqual(QApplication.clipboard().text(), "rgb(10, 132, 255)")
+
+    def test_edit_button_requests_edit(self) -> None:
+        row = ColorRow("color-id", "Apple blue", "#0a84ff", "#0a84ff")
+        requested: list[str] = []
+        row.editRequested.connect(requested.append)
+        QTest.mouseClick(row.edit_button, Qt.MouseButton.LeftButton)
+        self.assertEqual(requested, ["color-id"])
+
+    def test_add_button_sits_in_header(self) -> None:
+        self.assertTrue(self.window.add_button.isVisible())
+        self.assertEqual(self.window.add_button.text(), "Add color")
+        self.assertIsNot(self.window.add_button.parentWidget(), self.window.main_content)
+
 
     def test_delete_and_undo(self) -> None:
         project = self.window.active_project

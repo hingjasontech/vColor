@@ -30,7 +30,6 @@ from . import theme
 from .color_utils import format_color, slugify
 from .models import AppData, ColorEntry, PaletteStore, Project, StoreError
 from .widgets import (
-    AddColorButton,
     ColorItem,
     EmptyState,
     FormatComboBox,
@@ -65,9 +64,6 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(root)
 
         self.toast = Toast(self.main_content)
-        self.add_button = AddColorButton(self.main_content)
-        self.add_button.clicked.connect(self.add_color)
-        self.add_button.hide()
 
         self._install_shortcuts()
         self._render_project()
@@ -137,10 +133,10 @@ class MainWindow(QMainWindow):
         )
         center = QVBoxLayout(self.center_column)
         center.setContentsMargins(0, 0, 0, 0)
-        center.setSpacing(4)
+        center.setSpacing(20)
 
         header = QWidget()
-        header.setFixedHeight(48)
+        header.setFixedHeight(44)
         header_layout = QGridLayout(header)
         header_layout.setContentsMargins(0, 0, 0, 0)
         header_layout.setHorizontalSpacing(0)
@@ -162,6 +158,29 @@ class MainWindow(QMainWindow):
         title.setObjectName("PageTitle")
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
         header_layout.addWidget(title, 0, 1, Qt.AlignmentFlag.AlignCenter)
+
+        self.add_button = QPushButton("Add color")
+        self.add_button.setObjectName("PrimaryButton")
+        self.add_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.add_button.setToolTip("Add color (Ctrl+N)")
+        self.add_button.setAccessibleName("Add color")
+        self.add_button.setFixedSize(148, 44)
+        self.add_button.clicked.connect(self.add_color)
+        self.add_button.hide()
+
+        add_holder = QWidget()
+        add_holder.setFixedWidth(192)
+        add_layout = QHBoxLayout(add_holder)
+        add_layout.setContentsMargins(0, 0, 0, 0)
+        add_layout.setSpacing(0)
+        add_layout.addStretch(1)
+        add_layout.addWidget(self.add_button)
+        header_layout.addWidget(
+            add_holder,
+            0,
+            2,
+            Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
+        )
 
         header_layout.setColumnStretch(0, 1)
         header_layout.setColumnStretch(1, 0)
@@ -593,12 +612,6 @@ class MainWindow(QMainWindow):
     def _position_floating_widgets(self) -> None:
         if not hasattr(self, "main_content"):
             return
-        margin = 32
-        self.add_button.move(
-            self.main_content.width() - self.add_button.width() - margin,
-            self.main_content.height() - self.add_button.height() - margin,
-        )
-        self.add_button.raise_()
         self.toast.reposition()
         self.toast.raise_()
 

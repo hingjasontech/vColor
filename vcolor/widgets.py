@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
     QAbstractButton,
     QComboBox,
     QFrame,
-    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QMenu,
@@ -141,6 +140,19 @@ def draw_icon(
         path.closeSubpath()
         painter.drawPath(path)
         painter.drawLine(QPointF(cx + s * 0.18, cy - s * 0.22), QPointF(cx + s * 0.34, cy - s * 0.38))
+    elif kind == "pencil":
+        path = QPainterPath()
+        path.moveTo(cx - s * 0.34, cy + s * 0.34)
+        path.lineTo(cx - s * 0.24, cy + s * 0.08)
+        path.lineTo(cx + s * 0.18, cy - s * 0.34)
+        path.lineTo(cx + s * 0.34, cy - s * 0.18)
+        path.lineTo(cx - s * 0.08, cy + s * 0.24)
+        path.closeSubpath()
+        painter.drawPath(path)
+        painter.drawLine(
+            QPointF(cx - s * 0.24, cy + s * 0.08),
+            QPointF(cx - s * 0.08, cy + s * 0.24),
+        )
     elif kind == "external":
         painter.drawRoundedRect(QRectF(cx - s * 0.34, cy - s * 0.26, s * 0.46, s * 0.46), 2, 2)
         painter.drawLine(QPointF(cx - s * 0.02, cy - s * 0.30), QPointF(cx + s * 0.34, cy - s * 0.30))
@@ -251,7 +263,7 @@ class ColorRow(QFrame):
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setFixedHeight(72)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setToolTip("Click to edit this color")
+        self.setToolTip("Click to copy this color")
         self.setAccessibleName(f"Color {name}")
 
         layout = QHBoxLayout(self)
@@ -278,6 +290,18 @@ class ColorRow(QFrame):
         text_layout.addWidget(self.value_label)
         layout.addLayout(text_layout, 1)
 
+        self.edit_button = IconButton(
+            "pencil",
+            size=36,
+            icon_size=18,
+            color=theme.TEXT_MUTED,
+            hover_color=theme.TEXT,
+        )
+        self.edit_button.setToolTip("Edit color")
+        self.edit_button.setAccessibleName("Edit color")
+        self.edit_button.clicked.connect(lambda: self.editRequested.emit(self.color_id))
+        layout.addWidget(self.edit_button)
+
         self.delete_button = IconButton(
             "trash",
             size=36,
@@ -293,7 +317,7 @@ class ColorRow(QFrame):
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
-            self.editRequested.emit(self.color_id)
+            self.copyRequested.emit(self.color_id)
         super().mouseReleaseEvent(event)
 
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
@@ -422,48 +446,6 @@ class ProjectItem(QFrame):
             self.deleteRequested.emit(self.project_id)
 
 
-class AddColorButton(QAbstractButton):
-    def __init__(self, parent: QWidget | None = None) -> None:
-        super().__init__(parent)
-        self._hover = False
-        self.setFixedSize(58, 58)
-        self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        self.setToolTip("Add color (Ctrl+N)")
-        self.setAccessibleName("Add color")
-        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
-
-        shadow = QGraphicsDropShadowEffect(self)
-        shadow.setBlurRadius(26)
-        shadow.setOffset(0, 6)
-        shadow.setColor(QColor(0, 0, 0, 110))
-        self.setGraphicsEffect(shadow)
-
-    def enterEvent(self, event) -> None:  # type: ignore[no-untyped-def]
-        self._hover = True
-        self.update()
-        super().enterEvent(event)
-
-    def leaveEvent(self, event) -> None:  # type: ignore[no-untyped-def]
-        self._hover = False
-        self.update()
-        super().leaveEvent(event)
-
-    def paintEvent(self, event) -> None:  # type: ignore[no-untyped-def]
-        painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor(theme.ACCENT_HOVER if self._hover else theme.ACCENT))
-        painter.drawEllipse(QRectF(self.rect()).adjusted(1, 1, -1, -1))
-        draw_icon(
-            painter,
-            "plus",
-            QRectF(17, 17, 24, 24),
-            QColor("#FFFFFF"),
-            pen_width=2.0,
-        )
-
-
 class FormatComboBox(QComboBox):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -513,6 +495,7 @@ class EmptyState(QWidget):
         body_label.setObjectName("EmptyBody")
         body_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         body_label.setWordWrap(True)
+        body_label.setFixedWidth(460)
         layout.addWidget(body_label)
 
         if action:
