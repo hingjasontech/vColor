@@ -284,7 +284,7 @@ class MainWindow(QMainWindow):
         if not self.data.projects:
             state = EmptyState(
                 "No projects yet",
-                "Create your first project to start collecting and managing colors.",
+                "Create your first project",
                 "Create project",
             )
             state.actionTriggered.connect(self.new_project)
