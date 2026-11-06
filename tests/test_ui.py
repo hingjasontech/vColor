@@ -144,6 +144,17 @@ class WindowSmokeTests(unittest.TestCase):
         self.assertEqual(self.window.add_button.text(), "Add color")
         self.assertIsNot(self.window.add_button.parentWidget(), self.window.main_content)
 
+    def test_add_dialog_hides_conversions(self) -> None:
+        from vcolor.dialogs import ColorDialog
+
+        add_dialog = ColorDialog(self.window, show_conversions=False)
+        edit_dialog = ColorDialog(self.window)
+        try:
+            self.assertEqual(add_dialog._conversion_values, {})
+            self.assertEqual(len(edit_dialog._conversion_values), 4)
+        finally:
+            add_dialog.deleteLater()
+            edit_dialog.deleteLater()
 
     def test_delete_and_undo(self) -> None:
         project = self.window.active_project

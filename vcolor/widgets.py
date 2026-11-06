@@ -23,6 +23,8 @@ from PySide6.QtWidgets import (
     QMenu,
     QPushButton,
     QSizePolicy,
+    QStyle,
+    QStyledItemDelegate,
     QVBoxLayout,
     QWidget,
 )
@@ -446,6 +448,37 @@ class ProjectItem(QFrame):
             self.deleteRequested.emit(self.project_id)
 
 
+class _ComboItemDelegate(QStyledItemDelegate):
+    """Paint dropdown rows with a rounded accent highlight, menu-style."""
+
+    def paint(self, painter, option, index) -> None:  # type: ignore[no-untyped-def]
+        painter.save()
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        hovered = bool(option.state & QStyle.StateFlag.State_MouseOver)
+        selected = bool(option.state & QStyle.StateFlag.State_Selected)
+        if hovered:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(theme.ACCENT))
+            painter.drawRoundedRect(QRectF(option.rect).adjusted(5, 1, -5, -1), 8, 8)
+        elif selected:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(theme.SURFACE_ACTIVE))
+            painter.drawRoundedRect(QRectF(option.rect).adjusted(5, 1, -5, -1), 8, 8)
+        painter.setPen(QColor("#FFFFFF") if hovered else QColor(theme.TEXT))
+        text_rect = option.rect.adjusted(16, 0, -16, 0)
+        painter.drawText(
+            text_rect,
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            str(index.data(Qt.ItemDataRole.DisplayRole) or ""),
+        )
+        painter.restore()
+
+    def sizeHint(self, option, index):  # type: ignore[no-untyped-def]
+        size = super().sizeHint(option, index)
+        size.setHeight(max(size.height(), 36))
+        return size
+
+
 class FormatComboBox(QComboBox):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -455,6 +488,8 @@ class FormatComboBox(QComboBox):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setPlaceholderText("Select...")
         self.setAccessibleName("Color format")
+        self.setItemDelegate(_ComboItemDelegate(self))
+        self.view().setMouseTracking(True)
 
     def paintEvent(self, event) -> None:  # type: ignore[no-untyped-def]
         super().paintEvent(event)

@@ -73,7 +73,7 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
 
     QPushButton#CopyButton {{
         background: #3A3A3A;
-        border: 1px solid #5A5A5A;
+        border: none;
         border-radius: 18px;
         color: {TEXT};
         font-size: 14px;
@@ -86,11 +86,9 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
     }}
     QPushButton#CopyButton:hover {{
         background: #454545;
-        border-color: #6A6A6A;
     }}
     QPushButton#CopyButton:pressed {{
         background: #323232;
-        border-color: #505050;
     }}
 
     QComboBox#FormatSelect {{
@@ -105,7 +103,7 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
     }}
     QComboBox#FormatSelect:hover {{
         background: #333333;
-        border-color: {BORDER_STRONG};
+        border-color: {ACCENT};
     }}
     QComboBox#FormatSelect:focus {{
         border-color: {ACCENT};
@@ -127,21 +125,18 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
     QComboBox QAbstractItemView {{
         background: #2D2D2D;
         border: 1px solid {BORDER_STRONG};
-        border-radius: 9px;
+        border-radius: 10px;
         color: {TEXT};
         outline: 0;
-        padding: 6px;
-        selection-background-color: {ACCENT};
-        selection-color: white;
+        padding: 0;
+        selection-background-color: transparent;
+        selection-color: {TEXT};
     }}
     QComboBox QAbstractItemView::item {{
-        border-radius: 6px;
-        min-height: 32px;
-        padding-left: 8px;
-        padding-right: 18px;
-    }}
-    QComboBox QAbstractItemView::item:hover {{
-        background: #3A3A3A;
+        border: none;
+        min-height: 34px;
+        padding-left: 12px;
+        padding-right: 12px;
     }}
 
     QFrame#ColorRow {{

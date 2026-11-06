@@ -439,7 +439,7 @@ class MainWindow(QMainWindow):
 
         from .dialogs import ColorDialog, run_dialog
 
-        dialog = ColorDialog(self)
+        dialog = ColorDialog(self, show_conversions=False)
         if run_dialog(dialog) != ColorDialog.DialogCode.Accepted:
             return
         color = ColorEntry(name=dialog.color_name(), hex=dialog.color_hex())

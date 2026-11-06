@@ -156,12 +156,13 @@ class ColorDialog(QDialog):
         action: str = "Add color",
         name: str = "",
         hex_value: str = "#3b82f6",
+        show_conversions: bool = True,
     ) -> None:
         super().__init__(parent)
         self.setWindowTitle(title)
         self.setModal(True)
         self.setFixedWidth(570)
-        self.setMinimumHeight(610)
+        self.setMinimumHeight(610 if show_conversions else 480)
 
         self._hex = normalize_hex(hex_value) if is_hex(hex_value) else "#3b82f6"
 
@@ -219,32 +220,35 @@ class ColorDialog(QDialog):
 
         root.addWidget(editor_card)
 
-        conversions_card = QFrame()
-        conversions_card.setObjectName("PreviewCard")
-        conversions_layout = QVBoxLayout(conversions_card)
-        conversions_layout.setContentsMargins(18, 16, 18, 16)
-        conversions_layout.setSpacing(10)
-
-        conversions_title = QLabel("Conversions")
-        conversions_title.setObjectName("FieldLabel")
-        conversions_layout.addWidget(conversions_title)
-
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(20)
-        grid.setVerticalSpacing(7)
-        grid.setColumnStretch(1, 1)
         self._conversion_values: dict[str, QLabel] = {}
-        for row, label in enumerate(("RGB", "HSL", "OKLCH", "Display P3")):
-            key_label = QLabel(label)
-            key_label.setStyleSheet("font-size: 13px; color: #858585;")
-            value_label = QLabel()
-            value_label.setStyleSheet("font-size: 13px; color: #D2D2D2;")
-            value_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-            grid.addWidget(key_label, row, 0)
-            grid.addWidget(value_label, row, 1)
-            self._conversion_values[label] = value_label
-        conversions_layout.addLayout(grid)
-        root.addWidget(conversions_card)
+        if show_conversions:
+            conversions_card = QFrame()
+            conversions_card.setObjectName("PreviewCard")
+            conversions_layout = QVBoxLayout(conversions_card)
+            conversions_layout.setContentsMargins(18, 16, 18, 16)
+            conversions_layout.setSpacing(10)
+
+            conversions_title = QLabel("Conversions")
+            conversions_title.setObjectName("FieldLabel")
+            conversions_layout.addWidget(conversions_title)
+
+            grid = QGridLayout()
+            grid.setHorizontalSpacing(20)
+            grid.setVerticalSpacing(7)
+            grid.setColumnStretch(1, 1)
+            for row, label in enumerate(("RGB", "HSL", "OKLCH", "Display P3")):
+                key_label = QLabel(label)
+                key_label.setStyleSheet("font-size: 13px; color: #858585;")
+                value_label = QLabel()
+                value_label.setStyleSheet("font-size: 13px; color: #D2D2D2;")
+                value_label.setTextInteractionFlags(
+                    Qt.TextInteractionFlag.TextSelectableByMouse
+                )
+                grid.addWidget(key_label, row, 0)
+                grid.addWidget(value_label, row, 1)
+                self._conversion_values[label] = value_label
+            conversions_layout.addLayout(grid)
+            root.addWidget(conversions_card)
 
         contrast_row = QHBoxLayout()
         contrast_row.setSpacing(10)
@@ -314,11 +318,15 @@ class ColorDialog(QDialog):
             ("HSL", "HSL"),
             ("OKLCH", "OKLCH"),
         ):
-            self._conversion_values[label].setText(format_color(value, key))
+            if label in self._conversion_values:
+                self._conversion_values[label].setText(format_color(value, key))
 
-        p3 = srgb_to_display_p3(value)
-        gamut_note = "  (outside P3)" if p3.endswith(" *") else ""
-        self._conversion_values["Display P3"].setText(p3.removesuffix(" *") + gamut_note)
+        if "Display P3" in self._conversion_values:
+            p3 = srgb_to_display_p3(value)
+            gamut_note = "  (outside P3)" if p3.endswith(" *") else ""
+            self._conversion_values["Display P3"].setText(
+                p3.removesuffix(" *") + gamut_note
+            )
 
         white_ratio = contrast_ratio(value, "#ffffff")
         black_ratio = contrast_ratio(value, "#000000")
