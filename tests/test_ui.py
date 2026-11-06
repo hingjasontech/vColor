@@ -14,7 +14,7 @@ from PySide6.QtWidgets import QApplication  # noqa: E402
 from vcolor import theme  # noqa: E402
 from vcolor.main_window import MainWindow  # noqa: E402
 from vcolor.models import AppData, ColorEntry, PaletteStore, Project  # noqa: E402
-from vcolor.widgets import ColorItem, ColorRow, EmptyArt, EmptyState  # noqa: E402
+from vcolor.widgets import ColorItem, ColorRow, EmptyState  # noqa: E402
 
 
 def sample_data() -> AppData:
@@ -79,10 +79,6 @@ class WindowSmokeTests(unittest.TestCase):
         self.assertEqual(len(self.window.body.findChildren(EmptyState)), 1)
         self.assertFalse(self.window.format_combo.isEnabled())
         self.assertFalse(self.window.add_button.isVisible())
-
-    def test_empty_art_uses_app_icon(self) -> None:
-        art = EmptyArt()
-        self.assertTrue(art._renderer.isValid())
 
     def test_format_change_updates_rows(self) -> None:
         self.window.format_combo.setCurrentText("RGB")
