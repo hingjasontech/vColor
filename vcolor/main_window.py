@@ -321,7 +321,7 @@ class MainWindow(QMainWindow):
         elif not project.colors:
             state = EmptyState(
                 "No colors yet",
-                "Add a color to this project. You can paste a hex value or use the system picker.",
+                "Add a color to this project.",
                 "Add color",
             )
             state.actionTriggered.connect(self.add_color)
