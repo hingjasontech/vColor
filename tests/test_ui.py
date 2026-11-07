@@ -156,6 +156,24 @@ class WindowSmokeTests(unittest.TestCase):
             add_dialog.deleteLater()
             edit_dialog.deleteLater()
 
+    def test_color_dialog_accepts_any_format(self) -> None:
+        from vcolor.dialogs import ColorDialog
+
+        dialog = ColorDialog(self.window)
+        try:
+            for entered, expected in (
+                ("rgb(10, 132, 255)", "#0a84ff"),
+                ("hsl(210 100% 50%)", "#0080ff"),
+                ("red", "#ff0000"),
+                ("0a84ff", "#0a84ff"),
+            ):
+                with self.subTest(entered=entered):
+                    dialog.color_input.setText(entered)
+                    self.app.processEvents()
+                    self.assertEqual(dialog.color_hex(), expected)
+        finally:
+            dialog.deleteLater()
+
     def test_delete_and_undo(self) -> None:
         project = self.window.active_project
         color_id = project.colors[0].id

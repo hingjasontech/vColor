@@ -11,6 +11,7 @@ from vcolor.color_utils import (
     hsl_to_rgb,
     normalize_hex,
     oklch_to_rgb,
+    parse_color,
     rgb_to_hex,
     rgb_to_hsl,
     rgb_to_oklch,
@@ -31,6 +32,51 @@ class HexTests(unittest.TestCase):
     def test_rgb_round_trip(self) -> None:
         for value in ("#000000", "#ffffff", "#0a84ff", "#123123"):
             self.assertEqual(rgb_to_hex(hex_to_rgb(value)), value)
+
+
+class ParseColorTests(unittest.TestCase):
+    def test_hex_variants(self) -> None:
+        self.assertEqual(parse_color("#ABC"), "#aabbcc")
+        self.assertEqual(parse_color("0a84ff"), "#0a84ff")
+        self.assertEqual(parse_color("#0a84ffcc"), "#0a84ff")
+        self.assertEqual(parse_color("#abc8"), "#aabbcc")
+
+    def test_rgb_notation(self) -> None:
+        self.assertEqual(parse_color("rgb(10, 132, 255)"), "#0a84ff")
+        self.assertEqual(parse_color("rgba(10 132 255 / 0.5)"), "#0a84ff")
+        self.assertEqual(parse_color("rgb(100%, 0%, 0%)"), "#ff0000")
+
+    def test_hsl_notation(self) -> None:
+        self.assertEqual(parse_color("hsl(0, 100%, 50%)"), "#ff0000")
+        self.assertEqual(parse_color("hsl(120deg 100% 50%)"), "#00ff00")
+        self.assertEqual(parse_color("hsl(240, 100, 50)"), "#0000ff")
+        self.assertEqual(parse_color("hsla(210deg 100% 50% / 0.5)"), "#0080ff")
+
+    def test_oklch_notation(self) -> None:
+        for value in ("#0a84ff", "#123123", "#f05252", "#a78bfa"):
+            text = format_color(value, "OKLCH")
+            parsed = hex_to_rgb(parse_color(text))
+            expected = hex_to_rgb(value)
+            for first, second in zip(
+                parsed.as_tuple(), expected.as_tuple(), strict=True
+            ):
+                self.assertLessEqual(abs(first - second), 2)
+
+    def test_named_colors(self) -> None:
+        self.assertEqual(parse_color("Red"), "#ff0000")
+        self.assertEqual(parse_color("steelblue"), "#4682b4")
+        self.assertEqual(parse_color("RebeccaPurple"), "#663399")
+
+    def test_rejects_invalid_values(self) -> None:
+        for value in (
+            "",
+            "notacolor",
+            "rgb(1, 2)",
+            "hsl(x, 50%, 50%)",
+            "oklch(0.5 0.1)",
+        ):
+            with self.subTest(value=value), self.assertRaises(ColorError):
+                parse_color(value)
 
 
 class ConversionTests(unittest.TestCase):

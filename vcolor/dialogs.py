@@ -24,8 +24,7 @@ from .color_utils import (
     contrast_grade,
     contrast_ratio,
     format_color,
-    is_hex,
-    normalize_hex,
+    parse_color,
     srgb_to_display_p3,
 )
 from .widgets import ColorPreview, ContrastPill
@@ -152,7 +151,7 @@ class ColorDialog(QDialog):
         parent: QWidget | None = None,
         *,
         title: str = "Add color",
-        body: str = "Name the color and paste a hex value, or open the picker.",
+        body: str = "Name the color and enter any color value, or open the picker.",
         action: str = "Add color",
         name: str = "",
         hex_value: str = "#3b82f6",
@@ -164,7 +163,10 @@ class ColorDialog(QDialog):
         self.setFixedWidth(570)
         self.setMinimumHeight(610 if show_conversions else 480)
 
-        self._hex = normalize_hex(hex_value) if is_hex(hex_value) else "#3b82f6"
+        try:
+            self._hex = parse_color(hex_value)
+        except ColorError:
+            self._hex = "#3b82f6"
 
         root = QVBoxLayout(self)
         root.setContentsMargins(26, 24, 26, 22)
@@ -200,15 +202,15 @@ class ColorDialog(QDialog):
         self.name_input.setMaxLength(80)
         fields.addWidget(self.name_input)
 
-        hex_label = QLabel("Hex value")
-        hex_label.setObjectName("FieldLabel")
-        fields.addWidget(hex_label)
-        self.hex_input = QLineEdit(self._hex)
-        self.hex_input.setPlaceholderText("#3b82f6")
-        self.hex_input.setMaxLength(7)
-        self.hex_input.textChanged.connect(self._on_hex_changed)
-        self.hex_input.returnPressed.connect(self._accept_if_valid)
-        fields.addWidget(self.hex_input)
+        color_label = QLabel("Color value")
+        color_label.setObjectName("FieldLabel")
+        fields.addWidget(color_label)
+        self.color_input = QLineEdit(self._hex)
+        self.color_input.setPlaceholderText("e.g. #3b82f6, rgb(59, 130, 246), red")
+        self.color_input.setMaxLength(80)
+        self.color_input.textChanged.connect(self._on_color_changed)
+        self.color_input.returnPressed.connect(self._accept_if_valid)
+        fields.addWidget(self.color_input)
 
         pick_button = QPushButton("Pick color...")
         pick_button.setObjectName("SecondaryButton")
@@ -291,25 +293,26 @@ class ColorDialog(QDialog):
         if run_dialog(picker) == QDialog.DialogCode.Accepted:
             color = picker.selectedColor()
             if color.isValid():
-                self.hex_input.setText(color.name())
-                self.hex_input.setFocus()
-                self.hex_input.selectAll()
+                self.color_input.setText(color.name())
+                self.color_input.setFocus()
+                self.color_input.selectAll()
 
-    def _on_hex_changed(self, text: str) -> None:
+    def _on_color_changed(self, text: str) -> None:
         raw = text.strip()
-        if raw and not raw.startswith("#"):
-            raw = f"#{raw}"
-        if is_hex(raw):
-            self._hex = normalize_hex(raw)
+        valid = False
+        if raw:
+            try:
+                self._hex = parse_color(raw)
+                valid = True
+            except ColorError:
+                valid = False
+
+        self.color_input.setProperty("error", bool(raw) and not valid)
+        self.color_input.style().unpolish(self.color_input)
+        self.color_input.style().polish(self.color_input)
+        if valid:
             self.error_label.setVisible(False)
-            self.hex_input.setProperty("error", False)
-            self.hex_input.style().unpolish(self.hex_input)
-            self.hex_input.style().polish(self.hex_input)
             self._update_preview(self._hex)
-        else:
-            self.hex_input.setProperty("error", bool(raw))
-            self.hex_input.style().unpolish(self.hex_input)
-            self.hex_input.style().polish(self.hex_input)
 
     def _update_preview(self, value: str) -> None:
         self.preview.set_color(value)
@@ -334,16 +337,16 @@ class ColorDialog(QDialog):
         self._black_contrast.set_values("On black", black_ratio, contrast_grade(black_ratio))
 
     def _accept_if_valid(self) -> None:
-        raw = self.hex_input.text().strip()
-        if not raw.startswith("#"):
-            raw = f"#{raw}"
+        raw = self.color_input.text().strip()
         try:
-            self._hex = normalize_hex(raw)
+            self._hex = parse_color(raw)
         except ColorError:
-            self.error_label.setText("Enter a valid hex color, for example #3b82f6.")
+            self.error_label.setText(
+                "Enter a valid color, for example #3b82f6, rgb(59, 130, 246), or red."
+            )
             self.error_label.setVisible(True)
-            self.hex_input.setFocus()
-            self.hex_input.selectAll()
+            self.color_input.setFocus()
+            self.color_input.selectAll()
             return
         self.accept()
 
