@@ -224,10 +224,10 @@ cp -a {stage.as_posix()}/. %{{buildroot}}/
 
 
 def package_macos(source: Path, version: str) -> list[Path]:
-    stem = f"vColor-{version}-{platform_tag()}"
+    base = f"vColor-{version}-{platform_tag()}"
     archives: list[Path] = []
 
-    archive = DIST / f"{stem}.zip"
+    archive = DIST / f"{base}-portable.zip"
     archive.unlink(missing_ok=True)
     # ditto keeps symlinks, permissions, and extended attributes intact, which
     # a plain zip does not preserve inside a macOS .app bundle.
@@ -245,7 +245,7 @@ def package_macos(source: Path, version: str) -> list[Path]:
     )
     archives.append(archive)
 
-    dmg = DIST / f"{stem}.dmg"
+    dmg = DIST / f"{base}.dmg"
     with tempfile.TemporaryDirectory() as temporary:
         stage = Path(temporary) / "vColor"
         stage.mkdir()
@@ -272,18 +272,20 @@ def package_macos(source: Path, version: str) -> list[Path]:
 
 
 def package_windows(source: Path, version: str) -> list[Path]:
-    stem = f"vColor-{version}-{platform_tag()}"
-    archive = DIST / f"{stem}.zip"
+    base = f"vColor-{version}-{platform_tag()}"
+    archive = DIST / f"{base}-portable.zip"
     archive.unlink(missing_ok=True)
-    shutil.make_archive(str(DIST / stem), "zip", root_dir=DIST, base_dir="vColor")
+    shutil.make_archive(
+        str(DIST / f"{base}-portable"), "zip", root_dir=DIST, base_dir="vColor"
+    )
     return [archive]
 
 
 def package_linux(source: Path, version: str) -> list[Path]:
-    stem = f"vColor-{version}-{platform_tag()}"
+    base = f"vColor-{version}-{platform_tag()}"
     archives: list[Path] = []
 
-    archive = DIST / f"{stem}.tar.gz"
+    archive = DIST / f"{base}-portable.tar.gz"
     archive.unlink(missing_ok=True)
     with tempfile.TemporaryDirectory() as temporary:
         staging = Path(temporary)
@@ -291,7 +293,7 @@ def package_linux(source: Path, version: str) -> list[Path]:
         desktop = ROOT / "packaging" / "linux" / "vcolor.desktop"
         if desktop.is_file():
             shutil.copy2(desktop, staging / "vcolor.desktop")
-        shutil.make_archive(str(DIST / stem), "gztar", root_dir=staging)
+        shutil.make_archive(str(DIST / f"{base}-portable"), "gztar", root_dir=staging)
     archives.append(archive)
 
     with tempfile.TemporaryDirectory() as temporary:

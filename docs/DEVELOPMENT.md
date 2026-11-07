@@ -101,9 +101,10 @@ To create release archives for the current platform:
 uv run python scripts/package.py
 ```
 
-It always writes the portable `dist/vColor-<version>-<platform>.(zip|tar.gz)`
-archive. On Linux it also writes `.deb` and `.rpm` packages when `dpkg-deb` and
-`rpmbuild` are installed; on macOS it also writes a `.dmg` disk image.
+It always writes the portable
+`dist/vColor-<version>-<platform>-portable.(zip|tar.gz)` archive. On Linux it
+also writes `.deb` and `.rpm` packages when `dpkg-deb` and `rpmbuild` are
+installed; on macOS it also writes a `.dmg` disk image.
 
 The package layout is:
 
@@ -111,7 +112,10 @@ The package layout is:
 | --- | --- |
 | `.deb` / `.rpm` | `/opt/vcolor`, a `vColor` command in `/usr/bin`, desktop entry, and icon |
 | `.dmg` | `vColor.app` plus an `Applications` shortcut for drag-to-install |
-| `.zip` / `.tar.gz` | Portable bundle; extract anywhere and run |
+| `-portable.zip` / `-portable.tar.gz` | Portable bundle; extract anywhere and run |
+
+The `-portable` suffix means the archive needs no installer. The `.deb`, `.rpm`,
+and `.dmg` files are system installers or disk images.
 
 ### Build all three platforms with CI
 
@@ -134,7 +138,7 @@ uv sync
 uv run python scripts/build.py
 uv run python scripts/package.py
 
-# macOS (produces dist/vColor.app, .zip, and .dmg)
+# macOS (produces dist/vColor.app, -portable.zip, and .dmg)
 uv sync
 uv run python scripts/build.py
 uv run python scripts/package.py
