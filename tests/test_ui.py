@@ -156,6 +156,21 @@ class WindowSmokeTests(unittest.TestCase):
             add_dialog.deleteLater()
             edit_dialog.deleteLater()
 
+    def test_add_dialog_starts_with_empty_color_value(self) -> None:
+        from vcolor.dialogs import ColorDialog
+
+        dialog = ColorDialog(self.window)
+        try:
+            dialog.show()
+            self.app.processEvents()
+            self.assertEqual(dialog.color_input.text(), "")
+            self.assertEqual(dialog.name_input.text(), "")
+            self.assertTrue(dialog.color_input.hasFocus())
+            self.assertEqual(dialog.color_name(), "Untitled color")
+        finally:
+            dialog.close()
+            dialog.deleteLater()
+
     def test_color_dialog_accepts_any_format(self) -> None:
         from vcolor.dialogs import ColorDialog
 

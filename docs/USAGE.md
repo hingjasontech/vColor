@@ -5,7 +5,8 @@
 - Multiple projects with rename, delete, and undo.
 - Add, edit, copy, and delete colors.
 - Enter colors as hex, `rgb()`, `hsl()`, `oklch()`, or CSS names like `tomato` —
-  vColor normalizes them to hex automatically.
+  vColor normalizes them to hex automatically. Names are optional; unnamed colors
+  are saved as “Untitled color”.
 - Live color picker plus HEX, RGB, HSL, OKLCH, and Display P3 conversions.
 - WCAG contrast checks against white and black.
 - Format selector updates the values shown and copied in the list, and remembers

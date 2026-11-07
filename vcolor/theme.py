@@ -13,11 +13,11 @@ BORDER_STRONG = "#4A4A4A"
 TEXT = "#F3F3F3"
 TEXT_MUTED = "#A6A6A6"
 TEXT_DIM = "#7C7C7C"
-ACCENT = "#3B82F6"
-ACCENT_HOVER = "#4C8FFB"
-ACCENT_PRESSED = "#2F6FD0"
-DANGER = "#F05252"
-DANGER_BG = "#22F05252"
+ACCENT = "#3584E4"
+ACCENT_HOVER = "#4990E7"
+ACCENT_PRESSED = "#2A6AB8"
+DANGER = "#FF7B84"
+DANGER_BG = "#22FF7B84"
 SUCCESS = "#3DD68C"
 WARNING = "#F5A524"
 
@@ -53,65 +53,102 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
         color: {TEXT};
     }}
 
-    QPushButton#CreateProjectButton {{
-        background: #3A3A3A;
-        border: none;
-        border-radius: 22px;
+    QPushButton {{
+        background-color: rgba(255, 255, 255, 10%);
+        border: 1px solid transparent;
+        border-radius: 9px;
         color: {TEXT};
         font-size: 15px;
-        font-weight: 500;
-        min-height: 44px;
-        padding: 0 18px;
+        font-weight: 700;
+        min-height: 34px;
+        padding: 0 17px;
+    }}
+    QPushButton:hover {{
+        background-color: rgba(255, 255, 255, 15%);
+    }}
+    QPushButton:pressed {{
+        background-color: rgba(255, 255, 255, 30%);
+    }}
+    QPushButton:disabled {{
+        background-color: rgba(255, 255, 255, 5%);
+        color: {TEXT_DIM};
+    }}
+
+    QPushButton#CreateProjectButton {{
+        background-color: rgba(255, 255, 255, 10%);
+        border: 1px solid transparent;
+        border-radius: 17px;
+        color: {TEXT};
+        font-size: 15px;
+        font-weight: 700;
+        min-height: 34px;
+        padding: 0 24px;
         text-align: center;
     }}
     QPushButton#CreateProjectButton:hover {{
-        background: #444444;
+        background-color: rgba(255, 255, 255, 15%);
     }}
     QPushButton#CreateProjectButton:pressed {{
-        background: #333333;
+        background-color: rgba(255, 255, 255, 30%);
+    }}
+
+    QPushButton#PillButton {{
+        background-color: {ACCENT};
+        border: 1px solid transparent;
+        border-radius: 22px;
+        color: white;
+        font-size: 15px;
+        font-weight: 700;
+        min-height: 44px;
+        padding: 0 32px;
+    }}
+    QPushButton#PillButton:hover {{
+        background-color: {ACCENT_HOVER};
+    }}
+    QPushButton#PillButton:pressed {{
+        background-color: {ACCENT_PRESSED};
     }}
 
     QPushButton#CopyButton {{
-        background: #3A3A3A;
-        border: none;
-        border-radius: 18px;
+        background-color: rgba(255, 255, 255, 10%);
+        border: 1px solid transparent;
+        border-radius: 9px;
         color: {TEXT};
         font-size: 14px;
-        font-weight: 500;
+        font-weight: 700;
         min-width: 72px;
         max-width: 72px;
-        min-height: 36px;
-        max-height: 36px;
+        min-height: 34px;
+        max-height: 34px;
         padding: 0;
     }}
     QPushButton#CopyButton:hover {{
-        background: #454545;
+        background-color: rgba(255, 255, 255, 15%);
     }}
     QPushButton#CopyButton:pressed {{
-        background: #323232;
+        background-color: rgba(255, 255, 255, 30%);
     }}
 
     QComboBox#FormatSelect {{
-        background: {SURFACE_INPUT};
-        border: 1px solid #383838;
-        border-radius: 10px;
-        color: #D8D8D8;
+        background-color: rgba(255, 255, 255, 10%);
+        border: 1px solid transparent;
+        border-radius: 9px;
+        color: {TEXT};
         font-size: 15px;
-        min-height: 42px;
-        padding-left: 14px;
+        min-height: 34px;
+        padding-left: 12px;
         padding-right: 36px;
     }}
     QComboBox#FormatSelect:hover {{
-        background: #333333;
+        background-color: rgba(255, 255, 255, 15%);
         border-color: {ACCENT};
     }}
     QComboBox#FormatSelect:focus {{
         border-color: {ACCENT};
     }}
     QComboBox#FormatSelect:disabled {{
-        color: #6F6F6F;
-        background: #2A2A2A;
-        border-color: #333333;
+        color: {TEXT_DIM};
+        background-color: rgba(255, 255, 255, 5%);
     }}
     QComboBox#FormatSelect::drop-down {{
         border: none;
@@ -251,17 +288,14 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
     }}
 
     QLineEdit {{
-        background: {SURFACE_INPUT};
-        border: 1px solid {BORDER};
+        background-color: rgba(255, 255, 255, 10%);
+        border: 1px solid transparent;
         border-radius: 9px;
         color: {TEXT};
         font-size: 15px;
-        min-height: 42px;
-        padding: 0 12px;
+        min-height: 34px;
+        padding: 0 10px;
         selection-background-color: {ACCENT};
-    }}
-    QLineEdit:hover {{
-        border-color: #4C4C4C;
     }}
     QLineEdit:focus {{
         border-color: {ACCENT};
@@ -271,53 +305,56 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
     }}
 
     QPushButton#PrimaryButton {{
-        background: {ACCENT};
-        border: none;
-        border-radius: 10px;
+        background-color: {ACCENT};
+        border: 1px solid transparent;
+        border-radius: 9px;
         color: white;
         font-size: 15px;
-        font-weight: 600;
-        min-height: 42px;
-        padding: 0 22px;
+        font-weight: 700;
+        min-height: 34px;
+        padding: 0 17px;
     }}
     QPushButton#PrimaryButton:hover {{
-        background: {ACCENT_HOVER};
+        background-color: {ACCENT_HOVER};
     }}
     QPushButton#PrimaryButton:pressed {{
-        background: {ACCENT_PRESSED};
+        background-color: {ACCENT_PRESSED};
     }}
     QPushButton#PrimaryButton:disabled {{
-        background: #2E3A4C;
-        color: #7F8A99;
+        background-color: rgba(53, 132, 228, 50%);
+        color: rgba(255, 255, 255, 50%);
     }}
     QPushButton#SecondaryButton {{
-        background: #343434;
-        border: none;
-        border-radius: 10px;
+        background-color: rgba(255, 255, 255, 10%);
+        border: 1px solid transparent;
+        border-radius: 9px;
         color: {TEXT};
         font-size: 15px;
-        font-weight: 500;
-        min-height: 42px;
-        padding: 0 22px;
+        font-weight: 700;
+        min-height: 34px;
+        padding: 0 17px;
     }}
     QPushButton#SecondaryButton:hover {{
-        background: #3E3E3E;
+        background-color: rgba(255, 255, 255, 15%);
     }}
     QPushButton#SecondaryButton:pressed {{
-        background: #2C2C2C;
+        background-color: rgba(255, 255, 255, 30%);
     }}
     QPushButton#DangerButton {{
-        background: {DANGER};
-        border: none;
-        border-radius: 10px;
-        color: white;
+        background-color: rgba(255, 123, 132, 15%);
+        border: 1px solid transparent;
+        border-radius: 9px;
+        color: #FF7B84;
         font-size: 15px;
-        font-weight: 600;
-        min-height: 42px;
-        padding: 0 22px;
+        font-weight: 700;
+        min-height: 34px;
+        padding: 0 17px;
     }}
     QPushButton#DangerButton:hover {{
-        background: #FF6262;
+        background-color: rgba(255, 123, 132, 20%);
+    }}
+    QPushButton#DangerButton:pressed {{
+        background-color: rgba(255, 123, 132, 35%);
     }}
 
     QFrame#DialogCard {{

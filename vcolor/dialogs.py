@@ -151,10 +151,10 @@ class ColorDialog(QDialog):
         parent: QWidget | None = None,
         *,
         title: str = "Add color",
-        body: str = "Name the color and enter any color value, or open the picker.",
+        body: str = "Enter any color value, or open the picker. Naming the color is optional.",
         action: str = "Add color",
         name: str = "",
-        hex_value: str = "#3b82f6",
+        hex_value: str = "",
         show_conversions: bool = True,
     ) -> None:
         super().__init__(parent)
@@ -163,6 +163,7 @@ class ColorDialog(QDialog):
         self.setFixedWidth(570)
         self.setMinimumHeight(610 if show_conversions else 480)
 
+        self._initial_text = hex_value.strip()
         try:
             self._hex = parse_color(hex_value)
         except ColorError:
@@ -194,18 +195,10 @@ class ColorDialog(QDialog):
         fields = QVBoxLayout()
         fields.setSpacing(7)
 
-        name_label = QLabel("Name")
-        name_label.setObjectName("FieldLabel")
-        fields.addWidget(name_label)
-        self.name_input = QLineEdit(name)
-        self.name_input.setPlaceholderText("e.g. Ocean blue")
-        self.name_input.setMaxLength(80)
-        fields.addWidget(self.name_input)
-
         color_label = QLabel("Color value")
         color_label.setObjectName("FieldLabel")
         fields.addWidget(color_label)
-        self.color_input = QLineEdit(self._hex)
+        self.color_input = QLineEdit(self._initial_text)
         self.color_input.setPlaceholderText("e.g. #3b82f6, rgb(59, 130, 246), red")
         self.color_input.setMaxLength(80)
         self.color_input.textChanged.connect(self._on_color_changed)
@@ -217,6 +210,14 @@ class ColorDialog(QDialog):
         pick_button.setCursor(Qt.CursorShape.PointingHandCursor)
         pick_button.clicked.connect(self._open_picker)
         fields.addWidget(pick_button)
+
+        name_label = QLabel("Name (optional)")
+        name_label.setObjectName("FieldLabel")
+        fields.addWidget(name_label)
+        self.name_input = QLineEdit(name)
+        self.name_input.setPlaceholderText("e.g. Ocean blue")
+        self.name_input.setMaxLength(80)
+        fields.addWidget(self.name_input)
         fields.addStretch(1)
         editor_layout.addLayout(fields, 1)
 
@@ -285,7 +286,7 @@ class ColorDialog(QDialog):
         root.addLayout(buttons)
 
         self._update_preview(self._hex)
-        self.name_input.setFocus()
+        self.color_input.setFocus()
 
     def _open_picker(self) -> None:
         picker = QColorDialog(QColor(self._hex), self)

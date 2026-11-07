@@ -167,7 +167,7 @@ def draw_icon(
 
 
 class IconButton(QAbstractButton):
-    """Square, flat icon button with a rounded hover surface."""
+    """Square, flat icon button with a circular hover surface."""
 
     def __init__(
         self,
@@ -209,7 +209,7 @@ class IconButton(QAbstractButton):
         if self._hover and self.isEnabled():
             painter.setPen(Qt.PenStyle.NoPen)
             painter.setBrush(self.hover_background)
-            painter.drawRoundedRect(self.rect().adjusted(1, 1, -1, -1), 9, 9)
+            painter.drawEllipse(self.rect().adjusted(1, 1, -1, -1))
 
         color = self.hover_color if self._hover and self.isEnabled() else self.color
         if not self.isEnabled():
@@ -367,7 +367,7 @@ class ColorItem(QWidget):
         self.copy_button = QPushButton("Copy")
         self.copy_button.setObjectName("CopyButton")
         self.copy_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.copy_button.setFixedSize(72, 36)
+        self.copy_button.setFixedSize(72, 34)
         self.copy_button.setToolTip(f"Copy {value}")
         self.copy_button.setAccessibleName("Copy color")
         self.copy_button.clicked.connect(lambda: self.copyRequested.emit(self.color_id))
@@ -484,7 +484,7 @@ class FormatComboBox(QComboBox):
         super().__init__(parent)
         self.setObjectName("FormatSelect")
         self.setFixedWidth(192)
-        self.setFixedHeight(44)
+        self.setFixedHeight(34)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setPlaceholderText("Select...")
         self.setAccessibleName("Color format")
@@ -536,10 +536,9 @@ class EmptyState(QWidget):
         if action:
             layout.addSpacing(10)
             button = QPushButton(action)
-            button.setObjectName("PrimaryButton")
+            button.setObjectName("PillButton")
             button.setCursor(Qt.CursorShape.PointingHandCursor)
             button.setAccessibleName(action)
-            button.setFixedWidth(160)
             button.clicked.connect(self.actionTriggered.emit)
             layout.addWidget(button, 0, Qt.AlignmentFlag.AlignHCenter)
 

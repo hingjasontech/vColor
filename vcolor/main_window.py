@@ -96,12 +96,12 @@ class MainWindow(QMainWindow):
         layout.addWidget(heading)
         layout.addSpacing(8)
 
-        create_button = QPushButton("+   Create project")
+        create_button = QPushButton("Create project")
         create_button.setObjectName("CreateProjectButton")
         create_button.setCursor(Qt.CursorShape.PointingHandCursor)
         create_button.setToolTip("Create a new project (Ctrl+Shift+N)")
         create_button.clicked.connect(self.new_project)
-        layout.addWidget(create_button)
+        layout.addWidget(create_button, 0, Qt.AlignmentFlag.AlignHCenter)
         layout.addSpacing(69)
 
         self.project_scroll = QScrollArea()
@@ -164,7 +164,7 @@ class MainWindow(QMainWindow):
         self.add_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.add_button.setToolTip("Add color (Ctrl+N)")
         self.add_button.setAccessibleName("Add color")
-        self.add_button.setFixedSize(148, 44)
+        self.add_button.setFixedHeight(34)
         self.add_button.clicked.connect(self.add_color)
         self.add_button.hide()
 
