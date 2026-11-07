@@ -205,12 +205,6 @@ class ColorDialog(QDialog):
         self.color_input.returnPressed.connect(self._accept_if_valid)
         fields.addWidget(self.color_input)
 
-        pick_button = QPushButton("Pick color...")
-        pick_button.setObjectName("SecondaryButton")
-        pick_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        pick_button.clicked.connect(self._open_picker)
-        fields.addWidget(pick_button)
-
         name_label = QLabel("Name (optional)")
         name_label.setObjectName("FieldLabel")
         fields.addWidget(name_label)
@@ -218,6 +212,14 @@ class ColorDialog(QDialog):
         self.name_input.setPlaceholderText("e.g. Ocean blue")
         self.name_input.setMaxLength(80)
         fields.addWidget(self.name_input)
+
+        fields.addSpacing(8)
+
+        pick_button = QPushButton("Pick color...")
+        pick_button.setObjectName("SecondaryButton")
+        pick_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        pick_button.clicked.connect(self._open_picker)
+        fields.addWidget(pick_button)
         fields.addStretch(1)
         editor_layout.addLayout(fields, 1)
 
