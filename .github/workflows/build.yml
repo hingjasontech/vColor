@@ -1,0 +1,66 @@
+name: Build desktop bundles
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.slug }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            slug: windows-x64
+          - os: ubuntu-latest
+            slug: linux-x86_64
+          # macos-latest is arm64 (macOS 26); macos-14 was retired in Nov 2026.
+          - os: macos-latest
+            slug: macos-arm64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install Linux Qt libraries
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 \
+            libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0
+
+      - name: Sync dependencies
+        run: uv sync --locked
+
+      - name: Test and build
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: uv run python scripts/build.py
+
+      - name: Package archive
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: uv run python scripts/package.py
+
+      - name: Upload bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: vColor-${{ matrix.slug }}
+          path: |
+            dist/*.zip
+            dist/*.tar.gz
+          if-no-files-found: error

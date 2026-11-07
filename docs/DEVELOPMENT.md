@@ -92,6 +92,55 @@ Outputs:
 
 The PyInstaller spec is in `packaging/vcolor.spec`. Builds are platform-specific,
 so each bundle must be produced on its target operating system (or in CI).
+PyInstaller cannot cross-compile, which means a Windows machine cannot produce
+Linux or macOS bundles.
+
+To create a release archive for the current platform:
+
+```bash
+uv run python scripts/package.py
+```
+
+It writes `dist/vColor-<version>-<platform>.(zip|tar.gz)` and includes the Linux
+`.desktop` file in the Linux archive.
+
+### Build all three platforms with CI
+
+`.github/workflows/build.yml` builds and uploads bundles for Windows, Linux, and
+macOS on every push to `main`, every pull request, and on demand. Pushing the
+repository to GitHub and opening the **Actions** tab is enough; the three
+archives are attached to the workflow run.
+
+The equivalent manual builds are:
+
+```bash
+# Windows (produces dist/vColor/)
+uv sync
+uv run python scripts/build.py
+uv run python scripts/package.py
+
+# Linux (same commands; install Qt runtime libraries first)
+sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0
+uv sync
+uv run python scripts/build.py
+uv run python scripts/package.py
+
+# macOS (produces dist/vColor.app)
+uv sync
+uv run python scripts/build.py
+uv run python scripts/package.py
+```
+
+macOS builds are unsigned. For local use, right-click the app and choose **Open**
+the first time, or remove the quarantine flag:
+
+```bash
+xattr -dr com.apple.quarantine dist/vColor.app
+```
+
+Distribution to other Macs requires a Developer ID certificate, code signing,
+and notarization on a macOS machine.
+
 
 For Linux desktop integration, copy the bundled folder somewhere stable and
 install `packaging/linux/vcolor.desktop` as `vcolor.desktop` in your applications
