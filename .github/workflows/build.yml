@@ -41,7 +41,8 @@ jobs:
           sudo apt-get install -y \
             libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 \
             libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
-            libxcb-randr0 libxcb-render-util0 libxcb-shape0
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 \
+            rpm
 
       - name: Sync dependencies
         run: uv sync --locked
@@ -63,4 +64,7 @@ jobs:
           path: |
             dist/*.zip
             dist/*.tar.gz
+            dist/*.deb
+            dist/*.rpm
+            dist/*.dmg
           if-no-files-found: error
