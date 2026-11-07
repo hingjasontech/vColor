@@ -4,7 +4,8 @@ A fast, native desktop color palette manager for Linux, macOS, and Windows.
 
 ![vColor screenshot](docs/screenshot.png)
 
-> Warning: This app is 100% vibe coded, lol
+> [!WARNING]
+> This app is 100% vibe coded. lol
 
 ## Documentation
 
