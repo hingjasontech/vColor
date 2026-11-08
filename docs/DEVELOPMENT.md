@@ -159,6 +159,27 @@ xattr -dr com.apple.quarantine dist/vColor.app
 Distribution to other Macs requires a Developer ID certificate, code signing,
 and notarization on a macOS machine.
 
+### Publishing a release
+
+Pushing a tag that starts with `v` builds all three platforms and creates a
+GitHub Release with the archives attached:
+
+```bash
+git tag v1.0.0
+git push origin main v1.0.0
+```
+
+The `release` job downloads the CI artifacts, writes `SHA256SUMS.txt`, and
+publishes everything with generated release notes. The release only happens for
+tag pushes, so a normal push to `main` just produces workflow artifacts.
+
+For a manual release, download the artifacts from the workflow run and attach
+the inner archives (not the artifact zips) in
+**Releases → Draft a new release**.
+
+Artifacts from a workflow run are at the bottom of the run summary under
+**Artifacts**. GitHub wraps each artifact in a zip, so extract twice.
+
 ## App icon
 
 The icon source is `vcolor/resources/icon.svg`. After editing it, regenerate the
