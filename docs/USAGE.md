@@ -18,6 +18,37 @@
 - Bundled Inter font and custom-painted icons — no icon theme dependency.
 - Keyboard shortcuts and project context menus.
 - Native file dialogs and native color picker on each platform.
+- Automatic update checks against GitHub Releases, with a download banner when
+  a newer version exists.
+
+## Installing
+
+| Platform | Recommended download |
+| --- | --- |
+| Windows x64 | `vColor-<version>-windows-x64-setup.exe` — per-user install, no admin prompt |
+| Windows arm64 | `vColor-<version>-windows-arm64-setup.exe` |
+| macOS | `vColor-<version>-macos-arm64.dmg` — drag `vColor.app` to Applications |
+| Linux | `vColor-<version>-linux-x86_64.AppImage` or `-linux-arm64.AppImage` — no install needed |
+| Linux (system package) | `vColor-<version>-linux-<arch>.deb` or `.rpm` |
+| Any | `-portable.zip` / `-portable.tar.gz` — extract and run |
+
+Windows installers are unsigned, so SmartScreen may show a warning; choose
+**More info → Run anyway**. macOS builds are also unsigned: right-click the app
+and choose **Open** the first time.
+
+## Update checks
+
+On launch, vColor asks the public GitHub API for the latest release at most once
+every 24 hours. If the release is newer, a banner appears above the color list
+with a **Download** button that opens the release page in your browser. Dismiss
+the banner to hide that version until the next one is published.
+
+Click the `vColor <version>` label at the bottom of the sidebar to check
+manually. It shows a short confirmation toast.
+
+vColor never downloads or installs updates by itself; it only opens the release
+page. To opt out, set `"update_check": false` in `palettes.json`, or start the
+app with `--no-update-check`.
 
 ## Keyboard shortcuts
 

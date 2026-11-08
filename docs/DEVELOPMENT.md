@@ -75,7 +75,7 @@ uv run python -m unittest discover -s tests -v
 ```
 
 The suite covers color conversion, contrast, persistence, corrupt-file recovery,
-palette import/export, and a headless UI smoke test.
+palette import/export, update version comparison, and a headless UI smoke test.
 
 ## Build a desktop bundle
 
@@ -102,38 +102,56 @@ uv run python scripts/package.py
 ```
 
 It always writes the portable
-`dist/vColor-<version>-<platform>-portable.(zip|tar.gz)` archive. On Linux it
-also writes `.deb` and `.rpm` packages when `dpkg-deb` and `rpmbuild` are
-installed; on macOS it also writes a `.dmg` disk image.
+`dist/vColor-<version>-<platform>-portable.(zip|tar.gz)` archive. Installer
+formats share the same `vColor-<version>-<platform>` base name:
+
+- Linux: `.deb` and `.rpm` when `dpkg-deb` and `rpmbuild` are installed, and
+  `.AppImage` when `appimagetool` is on `PATH` (or `APPIMAGETOOL` points at it).
+- Windows: `-setup.exe` when Inno Setup (`ISCC.exe`) is installed.
+- macOS: `.dmg` plus the portable `.zip`.
 
 The package layout is:
 
 | Format | Installs |
 | --- | --- |
 | `.deb` / `.rpm` | `/opt/vcolor`, a `vColor` command in `/usr/bin`, desktop entry, and icon |
+| `.AppImage` | Single self-contained executable; no install step |
+| `-setup.exe` | Per-user install with Start Menu shortcut and uninstaller |
 | `.dmg` | `vColor.app` plus an `Applications` shortcut for drag-to-install |
 | `-portable.zip` / `-portable.tar.gz` | Portable bundle; extract anywhere and run |
 
-The `-portable` suffix means the archive needs no installer. The `.deb`, `.rpm`,
-and `.dmg` files are system installers or disk images.
+The `-portable` suffix means the archive needs no installer. The `.deb` and
+`.rpm` filenames use the shared `vColor-...` release name, but their internal
+package name stays lowercase (`vcolor`) because Debian and RPM policies require
+it.
 
-### Build all three platforms with CI
+### Build all targets with CI
 
-`.github/workflows/build.yml` builds and uploads bundles for Windows, Linux, and
-macOS on every push to `main`, every pull request, and on demand. Pushing the
-repository to GitHub and opening the **Actions** tab is enough; the archives are
-attached to the workflow run.
+`.github/workflows/build.yml` builds and uploads bundles for Windows x64,
+Windows arm64, Linux x86_64, Linux arm64, and macOS arm64 on every push to
+`main`, every pull request, and on demand. Pushing the repository to GitHub and
+opening the **Actions** tab is enough; the archives are attached to the workflow
+run. The arm64 jobs use the public-repository-only `windows-11-arm` and
+`ubuntu-24.04-arm` runners.
+
+Windows arm64 builds need an arm64 Python and arm64 PySide6/PyInstaller wheels;
+the `windows-11-arm` runner provides both, and the installer is compiled with
+Inno's `arm64` architecture mode. Run the manual Windows steps below from an
+arm64 Python to produce `vColor-<version>-windows-arm64-*`.
 
 The equivalent manual builds are:
 
 ```bash
-# Windows (produces dist/vColor/ and a portable zip)
+# Windows (produces the portable zip and, with Inno Setup, -setup.exe)
+choco install innosetup   # or install Inno Setup 6 manually
 uv sync
 uv run python scripts/build.py
 uv run python scripts/package.py
 
-# Linux (install Qt runtime libraries and rpmbuild first)
+# Linux (install Qt runtime libraries, rpmbuild, and appimagetool first)
 sudo apt-get install -y libegl1 libgl1 libxkbcommon-x11-0 libxcb-cursor0 rpm
+curl -fsSL https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage \
+  -o ~/.local/bin/appimagetool && chmod +x ~/.local/bin/appimagetool
 uv sync
 uv run python scripts/build.py
 uv run python scripts/package.py
@@ -144,8 +162,9 @@ uv run python scripts/build.py
 uv run python scripts/package.py
 ```
 
-Install the Linux packages with `sudo apt install ./vcolor_*.deb` or
-`sudo dnf install ./vcolor-*.rpm`. The RPM metadata targets Fedora/RHEL package
+Install the Linux packages with `sudo apt install ./vColor-*.deb` or
+`sudo dnf install ./vColor-*.rpm`, or run `chmod +x vColor-*.AppImage` and
+execute the AppImage directly. The RPM metadata targets Fedora/RHEL package
 names; on other RPM distributions you may need to adapt the `Requires:` lines in
 `scripts/package.py`.
 
@@ -161,8 +180,8 @@ and notarization on a macOS machine.
 
 ### Publishing a release
 
-Pushing a tag that starts with `v` builds all three platforms and creates a
-GitHub Release with the archives attached:
+Pushing a tag that starts with `v` builds every target and creates a GitHub
+Release with the archives attached:
 
 ```bash
 git tag v1.0.0
@@ -202,8 +221,9 @@ vcolor/
   color_utils.py    conversions, contrast, formatting
   models.py         data model and atomic JSON store
   palette_io.py     JSON/CSS/GPL import and export
+  updater.py        GitHub release lookup and version comparison
   resources/        Inter font and app icons
-packaging/          PyInstaller spec and Linux desktop entry
+packaging/          PyInstaller spec, Inno Setup script, Linux desktop entry
 scripts/            icon generation and build helper
 tests/              unit and headless UI tests
 ```
