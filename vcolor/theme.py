@@ -397,6 +397,50 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
         color: #B4D0FF;
     }}
 
+    QFrame#UpdateBanner {{
+        background: #26364B;
+        border: 1px solid #37506E;
+        border-radius: 12px;
+    }}
+    QLabel#UpdateBannerLabel {{
+        color: #D7E5F8;
+        font-size: 13px;
+        font-weight: 500;
+    }}
+    QPushButton#UpdateBannerAction {{
+        background-color: {ACCENT};
+        border: 1px solid transparent;
+        border-radius: 8px;
+        color: white;
+        font-size: 13px;
+        font-weight: 700;
+        min-height: 28px;
+        max-height: 28px;
+        padding: 0 14px;
+    }}
+    QPushButton#UpdateBannerAction:hover {{
+        background-color: {ACCENT_HOVER};
+    }}
+    QPushButton#UpdateBannerAction:pressed {{
+        background-color: {ACCENT_PRESSED};
+    }}
+
+    QPushButton#VersionButton {{
+        background: transparent;
+        border: none;
+        color: {TEXT_DIM};
+        font-size: 12px;
+        font-weight: 500;
+        min-height: 24px;
+        padding: 0;
+    }}
+    QPushButton#VersionButton:hover {{
+        color: {TEXT_MUTED};
+    }}
+    QPushButton#VersionButton:disabled {{
+        color: {TEXT_DIM};
+    }}
+
     QMenu {{
         background: #2C2C2C;
         border: 1px solid #444444;

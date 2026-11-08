@@ -106,6 +106,9 @@ class AppData:
     projects: list[Project] = field(default_factory=list)
     active_project_id: str | None = None
     display_format: str = "HEX"
+    update_check: bool = True
+    last_update_check: str | None = None
+    skipped_version: str | None = None
     version: int = DATA_VERSION
 
     @property
@@ -134,6 +137,9 @@ class AppData:
             "version": DATA_VERSION,
             "active_project_id": self.active_project_id,
             "display_format": self.display_format,
+            "update_check": self.update_check,
+            "last_update_check": self.last_update_check,
+            "skipped_version": self.skipped_version,
             "projects": [project.to_dict() for project in self.projects],
         }
 
@@ -149,10 +155,18 @@ class AppData:
         display_format = str(raw.get("display_format") or "HEX").upper()
         if display_format not in DISPLAY_FORMATS:
             display_format = "HEX"
+        update_check = raw.get("update_check")
+        if not isinstance(update_check, bool):
+            update_check = True
+        last_check = raw.get("last_update_check")
+        skipped = raw.get("skipped_version")
         data = cls(
             projects=projects,
             active_project_id=active,
             display_format=display_format,
+            update_check=update_check,
+            last_update_check=str(last_check) if last_check else None,
+            skipped_version=str(skipped) if skipped else None,
         )
         data.ensure_active_project()
         return data

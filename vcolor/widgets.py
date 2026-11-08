@@ -619,6 +619,50 @@ class Toast(QFrame):
         self._action = None
 
 
+class UpdateBanner(QFrame):
+    """Non-blocking notice that a newer vColor release exists."""
+
+    downloadRequested = Signal()
+    dismissRequested = Signal()
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setObjectName("UpdateBanner")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setFixedHeight(46)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(16, 0, 8, 0)
+        layout.setSpacing(10)
+
+        icon = IconButton("external", size=26, icon_size=15, color=theme.ACCENT)
+        icon.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+        layout.addWidget(icon)
+
+        self._label = QLabel()
+        self._label.setObjectName("UpdateBannerLabel")
+        layout.addWidget(self._label, 1)
+
+        self.download_button = QPushButton("Download")
+        self.download_button.setObjectName("UpdateBannerAction")
+        self.download_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.download_button.setFixedHeight(30)
+        self.download_button.setAccessibleName("Download update")
+        self.download_button.clicked.connect(self.downloadRequested.emit)
+        layout.addWidget(self.download_button)
+
+        self.dismiss_button = IconButton(
+            "close", size=30, icon_size=14, color=theme.TEXT_DIM
+        )
+        self.dismiss_button.setToolTip("Dismiss this update")
+        self.dismiss_button.setAccessibleName("Dismiss update")
+        self.dismiss_button.clicked.connect(self.dismissRequested.emit)
+        layout.addWidget(self.dismiss_button)
+
+    def set_version(self, version: str) -> None:
+        self._label.setText(f"vColor {version} is available")
+
+
 class ColorPreview(QWidget):
     """Rounded color preview with a subtle border, used in dialogs."""
 

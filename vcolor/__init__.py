@@ -1,5 +1,5 @@
 """vColor: a fast desktop color palette manager."""
 
-from .app import __version__
+__version__ = "1.0.0"
 
 __all__ = ["__version__"]

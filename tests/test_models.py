@@ -48,6 +48,30 @@ class ModelTests(unittest.TestCase):
         restored = AppData.from_dict({"display_format": "CMYK", "projects": []})
         self.assertEqual(restored.display_format, "HEX")
 
+    def test_update_settings_round_trip(self) -> None:
+        data = AppData(
+            update_check=False,
+            last_update_check="2026-05-01T12:00:00+00:00",
+            skipped_version="1.2.0",
+        )
+        restored = AppData.from_dict(json.loads(json.dumps(data.to_dict())))
+        self.assertFalse(restored.update_check)
+        self.assertEqual(restored.last_update_check, "2026-05-01T12:00:00+00:00")
+        self.assertEqual(restored.skipped_version, "1.2.0")
+
+    def test_missing_update_settings_use_defaults(self) -> None:
+        restored = AppData.from_dict({"projects": []})
+        self.assertTrue(restored.update_check)
+        self.assertIsNone(restored.last_update_check)
+        self.assertIsNone(restored.skipped_version)
+
+    def test_malformed_update_settings_are_sanitized(self) -> None:
+        restored = AppData.from_dict(
+            {"projects": [], "update_check": "yes", "skipped_version": 5}
+        )
+        self.assertTrue(restored.update_check)
+        self.assertEqual(restored.skipped_version, "5")
+
 
 class StoreTests(unittest.TestCase):
     def setUp(self) -> None:

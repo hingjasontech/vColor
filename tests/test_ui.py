@@ -242,6 +242,48 @@ class WindowSmokeTests(unittest.TestCase):
         loaded = PaletteStore(self.path).load()
         self.assertEqual(loaded.active_project_id, second.id)
 
+    def test_update_banner_is_hidden_at_start(self) -> None:
+        self.assertFalse(self.window.update_banner.isVisible())
+        self.assertEqual(self.window.version_button.text(), "vColor 0.0.0")
+
+    def test_available_update_shows_banner(self) -> None:
+        self.window._on_update_available(self.release("9.9.9"))
+        self.app.processEvents()
+        self.assertTrue(self.window.update_banner.isVisible())
+        self.assertIn("9.9.9", self.window.update_banner._label.text())
+
+    def test_dismissing_update_remembers_version(self) -> None:
+        self.window._on_update_available(self.release("9.9.9"))
+        self.window._dismiss_update()
+        self.app.processEvents()
+        self.assertFalse(self.window.update_banner.isVisible())
+        self.assertEqual(self.window.data.skipped_version, "9.9.9")
+
+    def test_skipped_version_stays_hidden_on_auto_check(self) -> None:
+        self.window.data.skipped_version = "9.9.9"
+        self.window._manual_update_check = False
+        self.window._on_update_available(self.release("9.9.9"))
+        self.app.processEvents()
+        self.assertFalse(self.window.update_banner.isVisible())
+
+    def test_manual_check_shows_skipped_version(self) -> None:
+        self.window.data.skipped_version = "9.9.9"
+        self.window._manual_update_check = True
+        self.window._on_update_available(self.release("9.9.9"))
+        self.app.processEvents()
+        self.assertTrue(self.window.update_banner.isVisible())
+
+    @staticmethod
+    def release(version: str):
+        from vcolor.updater import ReleaseInfo
+
+        return ReleaseInfo(
+            version=version,
+            tag=f"v{version}",
+            url=f"https://example.com/{version}",
+            name=f"vColor {version}",
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

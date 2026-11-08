@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QSignalBlocker, QSize, Qt, QTimer
+from PySide6.QtCore import QSignalBlocker, QSize, Qt, QTimer, QUrl
 from PySide6.QtGui import (
     QCloseEvent,
+    QDesktopServices,
     QGuiApplication,
     QKeySequence,
     QResizeEvent,
@@ -28,24 +30,40 @@ from PySide6.QtWidgets import (
 
 from . import theme
 from .color_utils import format_color, slugify
-from .models import AppData, ColorEntry, PaletteStore, Project, StoreError
+from .models import AppData, ColorEntry, PaletteStore, Project, StoreError, utc_now
 from .widgets import (
     ColorItem,
     EmptyState,
     FormatComboBox,
     ProjectItem,
     Toast,
+    UpdateBanner,
 )
+
+if TYPE_CHECKING:
+    from .updater import ReleaseInfo, UpdateChecker
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, store: PaletteStore, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        store: PaletteStore,
+        version: str = "0.0.0",
+        *,
+        check_updates: bool = True,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.store = store
+        self.version = version
+        self.check_updates = check_updates
         self.data = AppData()
         self.current_format = "HEX"
         self._project_items: dict[str, ProjectItem] = {}
         self._loaded = False
+        self.updater: UpdateChecker | None = None
+        self._latest_release: ReleaseInfo | None = None
+        self._manual_update_check = False
 
         self.setWindowTitle("vColor")
         self.setMinimumSize(QSize(980, 640))
@@ -117,6 +135,15 @@ class MainWindow(QMainWindow):
         self.project_list_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.project_scroll.setWidget(self.project_list)
         layout.addWidget(self.project_scroll, 1)
+
+        layout.addSpacing(12)
+        self.version_button = QPushButton(f"vColor {self.version}")
+        self.version_button.setObjectName("VersionButton")
+        self.version_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.version_button.setToolTip("Check for updates")
+        self.version_button.setAccessibleName("Check for updates")
+        self.version_button.clicked.connect(self.check_for_updates)
+        layout.addWidget(self.version_button, 0, Qt.AlignmentFlag.AlignHCenter)
         return sidebar
 
     def _build_main_content(self) -> QWidget:
@@ -134,6 +161,12 @@ class MainWindow(QMainWindow):
         center = QVBoxLayout(self.center_column)
         center.setContentsMargins(0, 0, 0, 0)
         center.setSpacing(20)
+
+        self.update_banner = UpdateBanner(self.center_column)
+        self.update_banner.downloadRequested.connect(self._open_update_page)
+        self.update_banner.dismissRequested.connect(self._dismiss_update)
+        self.update_banner.hide()
+        center.addWidget(self.update_banner)
 
         header = QWidget()
         header.setFixedHeight(44)
@@ -226,6 +259,76 @@ class MainWindow(QMainWindow):
             return
         self._loaded = True
         self.set_data(self.store.load())
+        self._schedule_update_check()
+
+    # --------------------------------------------------------- update checks
+    def _schedule_update_check(self) -> None:
+        if not self.check_updates or not self.data.update_check:
+            return
+        from .updater import check_due
+
+        if not check_due(self.data.last_update_check):
+            return
+        self.data.last_update_check = utc_now()
+        self._persist(silent=True)
+        QTimer.singleShot(1500, self._start_update_check)
+
+    def _start_update_check(self) -> None:
+        self._latest_release = None
+        self._ensure_updater().check()
+
+    def _ensure_updater(self) -> UpdateChecker:
+        if self.updater is None:
+            from .updater import UpdateChecker
+
+            self.updater = UpdateChecker(self.version, self)
+            self.updater.updateAvailable.connect(self._on_update_available)
+            self.updater.checkFinished.connect(self._on_update_check_finished)
+        return self.updater
+
+    def check_for_updates(self) -> None:
+        self._manual_update_check = True
+        if not self._ensure_updater().check():
+            # A check is already running; let its completion report the result.
+            return
+        self._latest_release = None
+        self.version_button.setEnabled(False)
+        self.version_button.setText("Checking for updates…")
+
+    def _on_update_available(self, release: ReleaseInfo) -> None:
+        self._latest_release = release
+        if not self._manual_update_check and release.version == self.data.skipped_version:
+            return
+        self.update_banner.set_version(release.version)
+        self.update_banner.setToolTip(release.name)
+        self.update_banner.show()
+
+    def _on_update_check_finished(self, success: bool) -> None:
+        manual = self._manual_update_check
+        self._manual_update_check = False
+        self.version_button.setEnabled(True)
+        self.version_button.setText(f"vColor {self.version}")
+        if not manual:
+            return
+        if not success:
+            self.toast.show_message(
+                "Could not check for updates", kind="error", duration=4000
+            )
+        elif self._latest_release is not None:
+            self.toast.show_message(f"vColor {self._latest_release.version} is available")
+        else:
+            self.toast.show_message(f"You're up to date (vColor {self.version})")
+
+    def _open_update_page(self) -> None:
+        if self._latest_release is None:
+            return
+        QDesktopServices.openUrl(QUrl(self._latest_release.url))
+
+    def _dismiss_update(self) -> None:
+        if self._latest_release is not None:
+            self.data.skipped_version = self._latest_release.version
+            self._persist(silent=True)
+        self.update_banner.hide()
 
     def set_data(self, data: AppData) -> None:
         self.data = data

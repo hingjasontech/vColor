@@ -11,11 +11,9 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPalette
 from PySide6.QtWidgets import QApplication
 
-from . import theme
+from . import __version__, theme
 from .main_window import MainWindow
 from .models import PaletteStore, default_data_dir
-
-__version__ = "1.0.0"
 
 
 def _resource_path(*parts: str) -> Path:
@@ -77,6 +75,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Print time to first event-loop tick and exit.",
     )
     parser.add_argument(
+        "--no-update-check",
+        action="store_true",
+        help="Skip the automatic GitHub release check for this run.",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"vColor {__version__}",
@@ -103,7 +106,7 @@ def main(argv: list[str] | None = None) -> int:
 
     data_dir = args.data_dir or default_data_dir()
     store = PaletteStore(data_dir / "palettes.json")
-    window = MainWindow(store)
+    window = MainWindow(store, __version__, check_updates=not args.no_update_check)
     if icon_path.exists():
         window.setWindowIcon(QIcon(str(icon_path)))
     window.show()
