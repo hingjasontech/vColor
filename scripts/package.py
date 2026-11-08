@@ -3,11 +3,13 @@
 
 from __future__ import annotations
 
+import os
 import platform
 import re
 import shutil
 import subprocess
 import sys
+import sysconfig
 import tempfile
 from pathlib import Path
 
@@ -62,16 +64,28 @@ def project_version() -> str:
     return match.group(1)
 
 
+def windows_arch() -> str:
+    """Return ``arm64`` or ``x64`` for the running Windows interpreter.
+
+    ``platform.machine()`` reports ``ARM64`` even for an emulated x64 Python, so
+    the interpreter's own platform tag is the reliable source here.
+    """
+    return "arm64" if "arm" in sysconfig.get_platform().lower() else "x64"
+
+
 def platform_tag() -> str:
     machine = platform.machine().lower()
     if sys.platform == "win32":
-        arch = "x64" if machine in {"amd64", "x86_64"} else machine
-        return f"windows-{arch}"
+        return f"windows-{windows_arch()}"
     if sys.platform == "darwin":
         arch = "arm64" if machine == "arm64" else "x64"
         return f"macos-{arch}"
-    arch = "aarch64" if machine in {"aarch64", "arm64"} else "x86_64"
+    arch = "arm64" if machine in {"aarch64", "arm64"} else "x86_64"
     return f"linux-{arch}"
+
+
+def inno_arch() -> str:
+    return "arm64" if windows_arch() == "arm64" else "x64compatible"
 
 
 def deb_arch() -> str:
@@ -84,6 +98,38 @@ def rpm_arch() -> str:
     return {"x86_64": "x86_64", "amd64": "x86_64", "aarch64": "aarch64", "arm64": "aarch64"}.get(
         platform.machine().lower(), platform.machine().lower()
     )
+
+
+def appimage_arch() -> str:
+    return "aarch64" if platform.machine().lower() in {"aarch64", "arm64"} else "x86_64"
+
+
+def find_appimagetool() -> str | None:
+    override = os.environ.get("APPIMAGETOOL")
+    if override:
+        return override if Path(override).is_file() else None
+    return shutil.which("appimagetool")
+
+
+def find_iscc() -> str | None:
+    override = os.environ.get("ISCC")
+    if override and Path(override).is_file():
+        return override
+    found = shutil.which("iscc") or shutil.which("ISCC")
+    if found:
+        return found
+    roots = [os.environ.get("ProgramFiles(x86)"), os.environ.get("ProgramFiles")]
+    local_appdata = os.environ.get("LOCALAPPDATA")
+    if local_appdata:
+        roots.append(str(Path(local_appdata) / "Programs"))
+    for root in roots:
+        if not root:
+            continue
+        for directory in sorted(Path(root).glob("Inno Setup *")):
+            candidate = directory / "ISCC.exe"
+            if candidate.is_file():
+                return str(candidate)
+    return None
 
 
 def write_file(path: Path, text: str, *, executable: bool = False) -> None:
@@ -223,6 +269,82 @@ cp -a {stage.as_posix()}/. %{{buildroot}}/
     shutil.copy2(built, archive)
 
 
+def build_appimage(source: Path, archive: Path) -> bool:
+    tool = find_appimagetool()
+    if tool is None:
+        print("Skipping .AppImage: appimagetool was not found")
+        return False
+
+    with tempfile.TemporaryDirectory() as temporary:
+        appdir = Path(temporary) / "vColor.AppDir"
+        bundle = appdir / "usr" / "lib" / "vcolor"
+        shutil.copytree(source, bundle)
+
+        bin_dir = appdir / "usr" / "bin"
+        bin_dir.mkdir(parents=True)
+        (bin_dir / "vColor").symlink_to("../lib/vcolor/vColor")
+        (bin_dir / "vcolor").symlink_to("vColor")
+
+        desktop = ROOT / "packaging" / "linux" / "vcolor.desktop"
+        applications = appdir / "usr" / "share" / "applications"
+        applications.mkdir(parents=True)
+        shutil.copy2(desktop, applications / "vColor.desktop")
+        shutil.copy2(desktop, appdir / "vColor.desktop")
+
+        resources = ROOT / "vcolor" / "resources"
+        shutil.copy2(resources / "icon.png", appdir / "vColor.png")
+        png_dir = appdir / "usr" / "share" / "icons" / "hicolor" / "512x512" / "apps"
+        png_dir.mkdir(parents=True)
+        shutil.copy2(resources / "icon.png", png_dir / "vColor.png")
+        svg_dir = appdir / "usr" / "share" / "icons" / "hicolor" / "scalable" / "apps"
+        svg_dir.mkdir(parents=True)
+        shutil.copy2(resources / "icon.svg", svg_dir / "vColor.svg")
+
+        write_file(
+            appdir / "AppRun",
+            """#!/bin/sh
+HERE="$(dirname "$(readlink -f "$0")")"
+export PATH="$HERE/usr/bin:$PATH"
+exec "$HERE/usr/lib/vcolor/vColor" "$@"
+""",
+            executable=True,
+        )
+
+        archive.unlink(missing_ok=True)
+        subprocess.run(
+            [tool, "--no-appstream", str(appdir), str(archive)],
+            check=True,
+            env={
+                **os.environ,
+                "ARCH": appimage_arch(),
+                # Lets appimagetool run on runners without FUSE (Ubuntu 24.04).
+                "APPIMAGE_EXTRACT_AND_RUN": "1",
+            },
+        )
+    return archive.is_file()
+
+
+def build_windows_installer(version: str, archive: Path) -> bool:
+    compiler = find_iscc()
+    if compiler is None:
+        print("Skipping Windows installer: Inno Setup (ISCC.exe) was not found")
+        return False
+
+    subprocess.run(
+        [
+            compiler,
+            f"/DMyAppVersion={version}",
+            f"/DMyArch={inno_arch()}",
+            f"/DSourceDir={DIST / 'vColor'}",
+            f"/DOutputDir={DIST}",
+            f"/DOutputBaseFilename={archive.stem}",
+            str(ROOT / "packaging" / "windows" / "vcolor.iss"),
+        ],
+        check=True,
+    )
+    return archive.is_file()
+
+
 def package_macos(source: Path, version: str) -> list[Path]:
     base = f"vColor-{version}-{platform_tag()}"
     archives: list[Path] = []
@@ -273,12 +395,19 @@ def package_macos(source: Path, version: str) -> list[Path]:
 
 def package_windows(source: Path, version: str) -> list[Path]:
     base = f"vColor-{version}-{platform_tag()}"
+    archives: list[Path] = []
+
     archive = DIST / f"{base}-portable.zip"
     archive.unlink(missing_ok=True)
     shutil.make_archive(
         str(DIST / f"{base}-portable"), "zip", root_dir=DIST, base_dir="vColor"
     )
-    return [archive]
+    archives.append(archive)
+
+    setup = DIST / f"{base}-setup.exe"
+    if build_windows_installer(version, setup):
+        archives.append(setup)
+    return archives
 
 
 def package_linux(source: Path, version: str) -> list[Path]:
@@ -302,18 +431,22 @@ def package_linux(source: Path, version: str) -> list[Path]:
         linux_install_tree(stage, source)
 
         if shutil.which("dpkg-deb"):
-            deb = DIST / f"vcolor_{version}_{deb_arch()}.deb"
+            deb = DIST / f"{base}.deb"
             build_deb(stage, root / "deb", version, deb)
             archives.append(deb)
         else:
             print("Skipping .deb: dpkg-deb was not found")
 
         if shutil.which("rpmbuild"):
-            rpm = DIST / f"vcolor-{version}-1.{rpm_arch()}.rpm"
+            rpm = DIST / f"{base}.rpm"
             build_rpm(stage, root / "rpm", version, rpm)
             archives.append(rpm)
         else:
             print("Skipping .rpm: rpmbuild was not found (install the rpm package)")
+
+    appimage = DIST / f"{base}.AppImage"
+    if build_appimage(source, appimage):
+        archives.append(appimage)
 
     return archives
 

@@ -20,8 +20,13 @@ jobs:
         include:
           - os: windows-latest
             slug: windows-x64
+          # arm64 hosted runners are available for public repositories.
+          - os: windows-11-arm
+            slug: windows-arm64
           - os: ubuntu-latest
             slug: linux-x86_64
+          - os: ubuntu-24.04-arm
+            slug: linux-arm64
           # macos-latest is arm64 (macOS 26); macos-14 was retired in Nov 2026.
           - os: macos-latest
             slug: macos-arm64
@@ -44,6 +49,24 @@ jobs:
             libxcb-randr0 libxcb-render-util0 libxcb-shape0 \
             rpm
 
+      - name: Install AppImage tooling
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p "$HOME/.local/bin"
+          case "$(uname -m)" in
+            aarch64) arch=aarch64 ;;
+            *) arch=x86_64 ;;
+          esac
+          curl -fsSL \
+            "https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-${arch}.AppImage" \
+            -o "$HOME/.local/bin/appimagetool"
+          chmod +x "$HOME/.local/bin/appimagetool"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Install Inno Setup
+        if: runner.os == 'Windows'
+        run: choco install innosetup --no-progress -y
+
       - name: Sync dependencies
         run: uv sync --locked
 
@@ -57,6 +80,19 @@ jobs:
           QT_QPA_PLATFORM: offscreen
         run: uv run python scripts/package.py
 
+      - name: Verify Windows installer
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          if (-not (Get-ChildItem dist/*-setup.exe -ErrorAction SilentlyContinue)) {
+            throw "Windows installer was not produced"
+          }
+
+      - name: Verify Linux packages
+        if: runner.os == 'Linux'
+        run: |
+          ls -l dist/*.deb dist/*.rpm dist/*.AppImage
+
       - name: Upload bundle
         uses: actions/upload-artifact@v4
         with:
@@ -67,6 +103,8 @@ jobs:
             dist/*.deb
             dist/*.rpm
             dist/*.dmg
+            dist/*.AppImage
+            dist/*-setup.exe
           if-no-files-found: error
           retention-days: 7
 
@@ -88,7 +126,8 @@ jobs:
           cd release-assets
           find . -type f \
             \( -name '*.zip' -o -name '*.tar.gz' -o -name '*.deb' \
-               -o -name '*.rpm' -o -name '*.dmg' \) -print0 \
+               -o -name '*.rpm' -o -name '*.dmg' -o -name '*.AppImage' \
+               -o -name '*-setup.exe' \) -print0 \
             | sort -z \
             | xargs -0 -r sha256sum \
             | sed 's|  \./[^/]*/|  |' > SHA256SUMS.txt
@@ -106,4 +145,6 @@ jobs:
             release-assets/**/*.deb
             release-assets/**/*.rpm
             release-assets/**/*.dmg
+            release-assets/**/*.AppImage
+            release-assets/**/*-setup.exe
             release-assets/SHA256SUMS.txt
