@@ -6,7 +6,7 @@
 ;   /DOutputBaseFilename=vColor-<version>-windows-<x64|arm64>-setup
 ;
 ; To build manually, run from the repository root:
-;   iscc /DMyAppVersion=1.0.0 packaging\windows\vcolor.iss
+;   iscc /DMyAppVersion=1.1.0 packaging\windows\vcolor.iss
 
 #ifndef MyAppVersion
   #define MyAppVersion "0.0.0"
