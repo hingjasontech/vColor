@@ -27,6 +27,9 @@ class PaletteIoTests(unittest.TestCase):
     def test_json_export_import(self) -> None:
         path = self.directory / "brand.json"
         export_palette(self.project, path, "json")
+        raw = json.loads(path.read_text(encoding="utf-8"))
+        self.assertEqual(raw["format"], "vcolor.palette")
+        self.assertEqual(raw["id"], "brand-colors")
         colors = import_palette(path)
         self.assertEqual([color.name for color in colors], ["Ocean blue", "Ink"])
         self.assertEqual(colors[0].hex, "#0a84ff")

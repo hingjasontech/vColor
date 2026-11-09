@@ -9,6 +9,7 @@ from typing import Iterable
 
 from .color_utils import ColorError, normalize_hex, slugify
 from .models import ColorEntry, Project
+from .palette_format import PortablePalette
 
 HEX_TOKEN_RE = re.compile(r"#(?:[0-9a-fA-F]{6}|[0-9a-fA-F]{3})\b")
 CSS_VAR_RE = re.compile(
@@ -20,12 +21,7 @@ def export_palette(project: Project, path: Path, kind: str) -> None:
     kind = kind.lower().lstrip(".")
     if kind == "json":
         content = json.dumps(
-            {
-                "name": project.name,
-                "colors": [
-                    {"name": color.name, "hex": color.hex} for color in project.colors
-                ],
-            },
+            PortablePalette.from_project(project).to_dict(),
             indent=2,
             ensure_ascii=False,
         ) + "\n"

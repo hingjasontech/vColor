@@ -13,7 +13,11 @@
   your choice between sessions.
 - Automatic saving with atomic JSON writes — no Save button needed.
 - Import colors from JSON, CSS, or GIMP `.gpl` palettes.
-- Export palettes as JSON, CSS custom properties, or GIMP `.gpl`.
+- Export palettes as portable JSON, CSS custom properties, or GIMP `.gpl`.
+- Portable JSON palette files with a headless CLI for validating, converting,
+  exporting, and importing palettes.
+- No built-in theme catalog: fetch a theme's official colors and import them as
+  a project.
 - Starts with an empty workspace so you can create your own projects.
 - Bundled Inter font and custom-painted icons — no icon theme dependency.
 - Keyboard shortcuts and project context menus.
@@ -62,6 +66,26 @@ app with `--no-update-check`.
 Double-click a project to rename it. Right-click a project for export/import.
 Click a color tile to copy its value in the current display format; use the
 pencil button on the tile to edit it, or the trash button to delete it.
+
+## Portable palettes and the CLI
+
+Palettes can live outside the app as standalone JSON files such as
+`catppuccin-mocha.json`. The same format is used by **Export → JSON** in the
+GUI. vColor does not bundle a theme catalog; get the official colors from the
+upstream project and write the JSON file first.
+
+```bash
+# From a source checkout
+uv run python -m vcolor palette show catppuccin-mocha.json
+uv run python -m vcolor palette install catppuccin-mocha.json
+uv run python -m vcolor palette export catppuccin-mocha.json catppuccin-mocha.css
+
+# Installed package
+vcolor-cli install catppuccin-mocha.json
+```
+
+See [Portable palettes](PALETTES.md) for the format, the JSON Schema, and every
+command.
 
 ## Where data lives
 
