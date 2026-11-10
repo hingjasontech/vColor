@@ -111,6 +111,9 @@ Theme notes:
   tell the user which values are missing.
 - Keep `source` and `license` metadata accurate when converting someone else's
   theme.
+- Regenerate `docs/screenshot.png` whenever the interface changes. The README
+  embeds this file, so a UI change is not complete until the screenshot is
+  updated with `uv run python scripts/screenshot.py`.
 
 ## Repository map
 

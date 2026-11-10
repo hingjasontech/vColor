@@ -78,6 +78,17 @@ The suite covers color conversion, contrast, persistence, corrupt-file recovery,
 project file import/export, system accent detection, update version comparison,
 and a headless UI smoke test.
 
+## README screenshot
+
+`docs/screenshot.png` is embedded in `README.md`. Regenerate it after any UI
+change so the README stays in sync:
+
+```bash
+uv run python scripts/screenshot.py
+```
+
+The script renders the current interface with Qt's offscreen platform.
+
 ## Build a desktop bundle
 
 ```bash
@@ -230,6 +241,6 @@ vcolor/
   updater.py        GitHub release lookup and version comparison
   resources/        Inter font and app icons
 packaging/          PyInstaller spec, Inno Setup script, Linux desktop entry
-scripts/            icon generation and build helper
+scripts/            icon generation, screenshot, and build helpers
 tests/              unit and headless UI tests
 ```
