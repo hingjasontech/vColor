@@ -124,7 +124,7 @@ class PortablePaletteTests(unittest.TestCase):
             ),
             encoding="utf-8",
         )
-        with self.assertRaisesRegex(ValueError, "Unsupported palette format"):
+        with self.assertRaisesRegex(ValueError, "Unsupported project format"):
             load_palette(path)
 
     def test_from_project_and_back(self) -> None:

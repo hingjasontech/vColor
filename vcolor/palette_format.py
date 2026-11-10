@@ -1,7 +1,7 @@
-"""Portable palette documents.
+"""Portable project documents.
 
-A ``vcolor.palette`` JSON file is the interchange format used by the palette
-inbox and by palette files exported from the app. It deliberately keeps only
+A ``vcolor.palette`` JSON file is the interchange format used by the project
+inbox and by project files exported from the app. It deliberately keeps only
 data that is meaningful outside vColor: a name, colors, and optional source
 metadata. Internal ids and timestamps stay in the application database.
 """
@@ -21,7 +21,7 @@ FORMAT_VERSION = 1
 
 PALETTE_SCHEMA: dict[str, Any] = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "vColor portable palette",
+    "title": "vColor portable project",
     "type": "object",
     "required": ["name", "colors"],
     "properties": {
@@ -72,7 +72,7 @@ PALETTE_SCHEMA: dict[str, Any] = {
 
 @dataclass(slots=True)
 class PortablePalette:
-    """A single palette that can live outside the app database."""
+    """A single project that can live outside the app database."""
 
     id: str
     name: str
@@ -101,16 +101,16 @@ class PortablePalette:
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "PortablePalette":
         if not isinstance(raw, dict):
-            raise ValueError("Palette file must contain a JSON object")
+            raise ValueError("Project file must contain a JSON object")
         palette_format = raw.get("format")
         if palette_format not in (None, FORMAT):
-            raise ValueError(f"Unsupported palette format: {palette_format!r}")
+            raise ValueError(f"Unsupported project format: {palette_format!r}")
         name = str(raw.get("name") or "").strip()
         if not name:
-            raise ValueError("Palette file is missing a name")
+            raise ValueError("Project file is missing a name")
         colors = _parse_colors(raw.get("colors"))
         if not colors:
-            raise ValueError(f"Palette {name!r} contains no valid colors")
+            raise ValueError(f"Project {name!r} contains no valid colors")
         try:
             version = int(raw.get("version", FORMAT_VERSION))
         except (TypeError, ValueError):
@@ -119,7 +119,7 @@ class PortablePalette:
         if not isinstance(tags, list):
             tags = []
         return cls(
-            id=str(raw.get("id") or slugify(name, "palette")),
+            id=str(raw.get("id") or slugify(name, "project")),
             name=name,
             colors=colors,
             description=str(raw.get("description") or ""),
@@ -131,10 +131,10 @@ class PortablePalette:
 
     @classmethod
     def from_project(
-        cls, project: Project, *, palette_id: str | None = None
+        cls, project: Project, *, project_id: str | None = None
     ) -> "PortablePalette":
         return cls(
-            id=palette_id or slugify(project.name, "palette"),
+            id=project_id or slugify(project.name, "project"),
             name=project.name,
             colors=list(project.colors),
         )
@@ -173,7 +173,7 @@ def _parse_colors(items: Any) -> list[ColorEntry]:
 
 
 def load_palette(path: str | Path) -> PortablePalette:
-    """Read a portable palette file."""
+    """Read a portable project file."""
     path = Path(path)
     try:
         raw = json.loads(path.read_text(encoding="utf-8-sig"))
@@ -183,7 +183,7 @@ def load_palette(path: str | Path) -> PortablePalette:
 
 
 def save_palette(palette: PortablePalette, path: str | Path) -> Path:
-    """Write a palette as portable JSON and return the path."""
+    """Write a project as portable JSON and return the path."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(

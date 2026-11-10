@@ -1,24 +1,24 @@
 # AGENTS.md
 
-vColor is a desktop palette manager for Linux, macOS, and Windows. It
+vColor is a desktop project manager for Linux, macOS, and Windows. It
 deliberately does **not** ship a theme catalog: when a user asks for Catppuccin
 Mocha, Material 3, libadwaita, Tokyo Night, or any other theme, fetch the
 current official colors from the upstream project and deliver them as a
-portable vColor palette.
+portable vColor project.
 
-## How palettes reach the app
+## How projects reach the app
 
-vColor watches a **palette inbox** inside its application data directory. Write
+vColor watches a **project inbox** inside its application data directory. Write
 a complete `.json` file into the inbox. The app notices it while running, or on
 the next launch, validates it, creates a new project, and makes it active.
 
-| Platform | Inbox path |
+| Platform | Project inbox path |
 | --- | --- |
 | Windows | `%APPDATA%\vColor\inbox` |
 | macOS | `~/Library/Application Support/vColor/inbox` |
 | Linux | `${XDG_DATA_HOME:-$HOME/.local/share}/vColor/inbox` |
 
-If you cannot determine the path, ask the user to click **Palette inbox** at the
+If you cannot determine the path, ask the user to click **Project inbox** at the
 bottom of the app sidebar. That opens the watched folder. If you cannot write
 files at all (for example, a web chat), give the user the JSON file and ask
 them to drag it onto the vColor window.
@@ -29,9 +29,9 @@ Write the complete JSON to a temporary file in the inbox, then rename it to a
 `.json` name. Do not write directly to the final name: vColor may read the file
 while it is incomplete. Names starting with `.` are ignored.
 
-## Portable palette format
+## Portable project format
 
-A palette is one standalone JSON file, for example `my-theme.json`:
+A project is one standalone JSON file, for example `my-theme.json`:
 
 ```json
 {
@@ -53,7 +53,8 @@ A palette is one standalone JSON file, for example `my-theme.json`:
 Rules:
 
 - `name` and at least one valid color are required. Everything else is optional.
-- `format` may be omitted when reading; always write `"vcolor.palette"`.
+- `format` may be omitted when reading; always write `"vcolor.palette"`. The
+  identifier is kept for compatibility with existing files.
 - `id` defaults to a slug of `name`. Keep it stable and URL/file friendly.
 - `tags` are lowercase labels such as `dark`, `light`, `pastel`, `material`.
 - The canonical `colors` form is an array of `{"name", "hex"}` objects. The
@@ -62,7 +63,7 @@ Rules:
 - Hex values are normalized to lowercase `#rrggbb`.
 - Record the upstream `source` URL and `license` when they exist.
 
-The JSON Schema is available at `<inbox>/palette-schema.json`, and in the
+The JSON Schema is available at `<inbox>/project-schema.json`, and in the
 repository at `vcolor/palette_format.py` as `PALETTE_SCHEMA`.
 
 ## What the app does with a file
@@ -74,7 +75,7 @@ repository at `vcolor/palette_format.py` as `PALETTE_SCHEMA`.
   `tags` in the JSON file as the source of truth.
 - Invalid files are moved into `<inbox>/failed/`.
 - Valid files are archived into `<inbox>/imported/`.
-- `AGENTS.md` and `palette-schema.json` are reserved and never imported.
+- `AGENTS.md` and `project-schema.json` are reserved and never imported.
 
 Do not edit `palettes.json` directly, and do not write anywhere else in the
 application data directory.
@@ -107,21 +108,22 @@ Theme notes:
 
 ## Rules for this repository
 
-- Do not add theme palettes to the repository unless the user explicitly asks.
-  Palettes are user data, not source code.
-- Do not hand-edit the application database (`palettes.json`); use the palette
+- Do not add theme projects to the repository unless the user explicitly asks.
+  Theme projects are user data, not source code.
+- Do not hand-edit the application database (`palettes.json`); use the project
   inbox or the GUI.
 - Do not guess official theme colors. If the upstream source cannot be found,
   tell the user which values are missing.
 - Keep `source` and `license` metadata accurate when converting someone else's
-  palette.
+  theme.
 
 ## Repository map
 
 | Path | Purpose |
 | --- | --- |
-| `vcolor/inbox.py` | Watched palette inbox, validation, copy naming, archiving |
-| `vcolor/palette_format.py` | Portable palette load/save and JSON Schema |
+| `vcolor/inbox.py` | Watched project inbox, validation, copy naming, archiving |
+| `vcolor/settings_page.py` | Libadwaita-style settings page |
+| `vcolor/palette_format.py` | Portable project load/save and JSON Schema |
 | `vcolor/palette_io.py` | CSS/GPL/JSON import and export |
 | `vcolor/models.py` | Application data (`palettes.json`) |
 | `vcolor/main_window.py` | Window, inbox polling, drag-and-drop, persistence |

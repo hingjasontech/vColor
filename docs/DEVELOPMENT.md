@@ -3,7 +3,7 @@
 ## Why it starts fast
 
 vColor uses Qt Widgets directly instead of a browser runtime. The window is
-shown first, then the palette data is loaded on the first event-loop tick.
+shown first, then the project data is loaded on the first event-loop tick.
 Dialogs and import/export code are imported only when used.
 
 Measured on the development machine (Linux, Wayland, Python 3.14, PySide6 6.12):
@@ -75,7 +75,7 @@ uv run python -m unittest discover -s tests -v
 ```
 
 The suite covers color conversion, contrast, persistence, corrupt-file recovery,
-palette import/export, the watched palette inbox, update version comparison, and
+project import/export, the watched project inbox, update version comparison, and
 a headless UI smoke test.
 
 ## Build a desktop bundle
@@ -217,13 +217,14 @@ Rebuild the desktop bundle afterward so the new icon is embedded in the EXE.
 vcolor/
   app.py            application bootstrap, command-line flags, theme setup
   main_window.py    window, projects, rows, inbox polling, persistence wiring
-  inbox.py          watched palette inbox, validation, copy naming, archiving
+  settings_page.py  libadwaita-style preferences page
+  inbox.py          watched project inbox, validation, copy naming, archiving
   widgets.py        custom-painted buttons, rows, toast, empty state
   dialogs.py        project/color/confirm dialogs
   color_utils.py    conversions, contrast, formatting
   models.py         data model and atomic JSON store
-  palette_format.py portable palette load/save and JSON Schema
-  palette_io.py     JSON/CSS/GPL import and export
+  palette_format.py portable project load/save and JSON Schema
+  palette_io.py     JSON/CSS/GPL color import and export
   updater.py        GitHub release lookup and version comparison
   resources/        Inter font and app icons
 packaging/          PyInstaller spec, Inno Setup script, Linux desktop entry

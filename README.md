@@ -1,7 +1,7 @@
 # vColor
 
-A fast, native desktop color palette manager for Linux, macOS, and Windows,
-with a portable JSON palette format and a watched palette inbox for AI
+A fast, native desktop color project manager for Linux, macOS, and Windows,
+with a portable JSON project format and a watched project inbox for AI
 assistants.
 
 ![vColor screenshot](docs/screenshot.png)
@@ -12,7 +12,7 @@ assistants.
 ## Documentation
 
 - [Usage](docs/USAGE.md) — features, keyboard shortcuts, and where your data lives
-- [Portable palettes](docs/PALETTES.md) — JSON format, palette inbox, and drag-and-drop
+- [Portable projects](docs/PROJECTS.md) — JSON format, project inbox, and drag-and-drop
 - [Development](docs/DEVELOPMENT.md) — running from source, tests, and building desktop bundles
 - [AGENTS.md](AGENTS.md) — delivery recipes for AI assistants and coding agents
 

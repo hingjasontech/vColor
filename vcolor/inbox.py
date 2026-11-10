@@ -1,10 +1,10 @@
-"""Watched palette inbox.
+"""Watched project inbox.
 
 The inbox is the hand-off point between an AI assistant and the running app.
-An assistant writes a portable ``vcolor.palette`` JSON file into the inbox;
-vColor validates it, creates a new project, and moves the file into
-``imported/``. Invalid files are moved into ``failed/`` after a short grace
-period so an in-progress write is not rejected by accident.
+An assistant writes a portable project JSON file into the inbox; vColor
+validates it, creates a new project, and moves the file into ``imported/``.
+Invalid files are moved into ``failed/`` after a short grace period so an
+in-progress write is not rejected by accident.
 """
 
 from __future__ import annotations
@@ -23,32 +23,35 @@ INBOX_DIR_NAME = "inbox"
 IMPORTED_DIR_NAME = "imported"
 FAILED_DIR_NAME = "failed"
 
-# Files the app writes into the inbox. They are documentation, not palettes.
-RESERVED_NAMES = frozenset({"agents.md", "readme.md", "palette-schema.json"})
+# Files the app writes into the inbox. They are documentation, not projects.
+# ``palette-schema.json`` is the old name, kept reserved for existing installs.
+RESERVED_NAMES = frozenset(
+    {"agents.md", "readme.md", "project-schema.json", "palette-schema.json"}
+)
 
-MAX_PALETTE_BYTES = 2_000_000
+MAX_PROJECT_BYTES = 2_000_000
 DEFAULT_PARTIAL_WRITE_GRACE = 3.0
 
-INBOX_AGENTS_MARKDOWN = """# vColor palette inbox
+INBOX_AGENTS_MARKDOWN = """# vColor project inbox
 
-vColor watches this folder. When a valid palette file appears, the app adds it
+vColor watches this folder. When a valid project file appears, the app adds it
 as a project and moves the file into `imported/`. If vColor is closed, the file
 is imported the next time the app starts. Invalid files move into `failed/`
 after a short grace period.
 
-## Write a palette
+## Write a project
 
-Create a JSON file with this shape. `palette-schema.json` in this folder has
+Create a JSON file with this shape. `project-schema.json` in this folder has
 the full schema.
 
 ```json
 {
   "format": "vcolor.palette",
   "version": 1,
-  "id": "my-theme",
-  "name": "My Theme",
+  "id": "my-project",
+  "name": "My Project",
   "description": "One-line summary.",
-  "source": "https://example.com/my-theme",
+  "source": "https://example.com/my-project",
   "license": "MIT",
   "tags": ["dark"],
   "colors": [
@@ -76,19 +79,19 @@ ignored.
 - vColor stores only the project name and colors. Keep `source`, `license`,
   and `tags` in the JSON file as the source of truth.
 - Invalid files are moved into `failed/`.
-- `AGENTS.md` and `palette-schema.json` are reserved and are never imported.
+- `AGENTS.md` and `project-schema.json` are reserved and are never imported.
 """
 
 
 @dataclass(slots=True)
-class ImportedPalette:
+class ImportedProject:
     source: Path
     archive: Path
     project: Project
 
 
 @dataclass(slots=True)
-class FailedPalette:
+class FailedProject:
     source: Path
     archive: Path | None
     error: str
@@ -96,8 +99,8 @@ class FailedPalette:
 
 @dataclass(slots=True)
 class InboxScan:
-    imported: list[ImportedPalette] = field(default_factory=list)
-    failed: list[FailedPalette] = field(default_factory=list)
+    imported: list[ImportedProject] = field(default_factory=list)
+    failed: list[FailedProject] = field(default_factory=list)
     pending: list[Path] = field(default_factory=list)
 
     @property
@@ -105,8 +108,8 @@ class InboxScan:
         return bool(self.imported or self.failed)
 
 
-class PaletteInbox:
-    """A folder of portable palette files waiting to be imported."""
+class ProjectInbox:
+    """A folder of portable project files waiting to be imported."""
 
     def __init__(
         self,
@@ -131,13 +134,13 @@ class PaletteInbox:
 
         self._write_if_changed(self.root / "AGENTS.md", INBOX_AGENTS_MARKDOWN)
         self._write_if_changed(
-            self.root / "palette-schema.json",
+            self.root / "project-schema.json",
             json.dumps(PALETTE_SCHEMA, indent=2, ensure_ascii=False) + "\n",
         )
         return True
 
     def scan(self, data: AppData) -> InboxScan:
-        """Import every ready palette file into ``data``.
+        """Import every ready project file into ``data``.
 
         Files that cannot be parsed yet but were modified very recently are
         left in place and reported as ``pending``. This makes a non-atomic
@@ -153,16 +156,16 @@ class PaletteInbox:
             except OSError:
                 continue
 
-            if stat.st_size > MAX_PALETTE_BYTES:
+            if stat.st_size > MAX_PROJECT_BYTES:
                 self._reject(
                     path,
                     result,
-                    f"File is larger than {MAX_PALETTE_BYTES // 1_000_000} MB",
+                    f"File is larger than {MAX_PROJECT_BYTES // 1_000_000} MB",
                 )
                 continue
 
             try:
-                palette = load_palette(path)
+                portable = load_palette(path)
             except ValueError as exc:
                 if self._is_recent(stat):
                     result.pending.append(path)
@@ -172,8 +175,8 @@ class PaletteInbox:
             except OSError:
                 continue
 
-            project = palette.to_project(
-                name=unique_project_name(data, palette.name)
+            project = portable.to_project(
+                name=unique_project_name(data, portable.name)
             )
             archive = self._archive(path, self.imported_dir)
             if archive is None:
@@ -182,7 +185,7 @@ class PaletteInbox:
 
             data.projects.append(project)
             result.imported.append(
-                ImportedPalette(source=path, archive=archive, project=project)
+                ImportedProject(source=path, archive=archive, project=project)
             )
 
         return result
@@ -218,7 +221,7 @@ class PaletteInbox:
         if archive is None:
             result.pending.append(path)
             return
-        result.failed.append(FailedPalette(source=path, archive=archive, error=error))
+        result.failed.append(FailedProject(source=path, archive=archive, error=error))
 
     @staticmethod
     def _archive(path: Path, directory: Path) -> Path | None:
@@ -253,7 +256,7 @@ class PaletteInbox:
 
 def unique_project_name(data: AppData, name: str) -> str:
     """Return ``name`` or the next available ``Name (2)`` style copy."""
-    base = name.strip() or "Palette"
+    base = name.strip() or "Project"
     existing = {project.name.strip().casefold() for project in data.projects}
     if base.casefold() not in existing:
         return base
@@ -271,7 +274,7 @@ def unique_path(directory: Path, filename: str) -> Path:
         return candidate
 
     path = Path(filename)
-    stem = path.stem or "palette"
+    stem = path.stem or "project"
     suffix = path.suffix
     index = 2
     while True:
@@ -281,19 +284,19 @@ def unique_path(directory: Path, filename: str) -> Path:
         index += 1
 
 
-def project_from_palette(data: AppData, palette: PortablePalette) -> Project:
+def project_from_portable(data: AppData, portable: PortablePalette) -> Project:
     """Create a new project in ``data``, preserving existing projects."""
-    project = palette.to_project(name=unique_project_name(data, palette.name))
+    project = portable.to_project(name=unique_project_name(data, portable.name))
     data.projects.append(project)
     return project
 
 
-def read_palette_file(path: Path) -> PortablePalette:
-    """Read a palette file for drag-and-drop, rejecting oversized files."""
+def read_project_file(path: Path) -> PortablePalette:
+    """Read a project file for drag-and-drop, rejecting oversized files."""
     stat = Path(path).stat()
-    if stat.st_size > MAX_PALETTE_BYTES:
+    if stat.st_size > MAX_PROJECT_BYTES:
         raise ValueError(
-            f"File is larger than {MAX_PALETTE_BYTES // 1_000_000} MB"
+            f"File is larger than {MAX_PROJECT_BYTES // 1_000_000} MB"
         )
     return load_palette(path)
 

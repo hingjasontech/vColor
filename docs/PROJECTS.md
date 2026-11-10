@@ -1,14 +1,14 @@
-# Portable palettes
+# Portable projects
 
-A vColor palette is a small JSON document that can be stored, shared, and
+A vColor project is a small JSON document that can be stored, shared, and
 version-controlled on its own — `catppuccin-mocha.json`, `libadwaita.json`,
 `material-3.json`, and so on. The same format is used by the GUI's
-**Export → JSON** action and by the watched palette inbox.
+**Export → JSON** action and by the watched project inbox.
 
 vColor does not bundle a theme catalog. Theme colors change upstream and have
-different licenses, so the intended workflow is: fetch the official palette,
-write a portable file, then let vColor import it. Coding agents can follow the
-recipes in [AGENTS.md](../AGENTS.md).
+different licenses, so the intended workflow is: fetch the official colors,
+write a portable project file, then let vColor import it. Coding agents can
+follow the recipes in [AGENTS.md](../AGENTS.md).
 
 ## File format
 
@@ -16,10 +16,10 @@ recipes in [AGENTS.md](../AGENTS.md).
 {
   "format": "vcolor.palette",
   "version": 1,
-  "id": "my-theme",
-  "name": "My Theme",
+  "id": "my-project",
+  "name": "My Project",
   "description": "One-line summary.",
-  "source": "https://example.com/my-theme",
+  "source": "https://example.com/my-project",
   "license": "MIT",
   "tags": ["dark"],
   "colors": [
@@ -41,33 +41,36 @@ recipes in [AGENTS.md](../AGENTS.md).
 | `tags` | No | Lowercase search labels, e.g. `dark`, `light`, `material`. |
 | `colors` | Yes | Array of `{"name", "hex"}` objects; at least one valid color. |
 
+The `vcolor.palette` format identifier is kept for compatibility with existing
+files. Internally, an imported file becomes a vColor **project**.
+
 For convenience, the reader also accepts `colors` as an object
 (`{"base": "#101014"}`) or a bare array of hex strings. Exports always use the
 canonical array form. Hex values are normalized to lowercase `#rrggbb`;
-invalid entries are skipped when reading, and a palette with no valid colors is
+invalid entries are skipped when reading, and a project with no valid colors is
 rejected.
 
-The machine-readable JSON Schema is written into the palette inbox as
-`palette-schema.json` and lives in the source tree in
+The machine-readable JSON Schema is written into the project inbox as
+`project-schema.json` and lives in the source tree in
 [`vcolor/palette_format.py`](../vcolor/palette_format.py) as `PALETTE_SCHEMA`.
 
-## The palette inbox
+## The project inbox
 
 vColor watches an inbox folder inside its application data directory. A valid
 JSON file placed there becomes a new project automatically and is made active.
 The file is then moved into `inbox/imported/`; invalid files are moved into
 `inbox/failed/`.
 
-| Platform | Inbox path |
+| Platform | Project inbox path |
 | --- | --- |
 | Windows | `%APPDATA%\vColor\inbox` |
 | macOS | `~/Library/Application Support/vColor/inbox` |
 | Linux | `${XDG_DATA_HOME:-$HOME/.local/share}/vColor/inbox` |
 
-The app creates the folder and a short `AGENTS.md` contract on first launch.
-Click **Palette inbox** at the bottom of the app sidebar to open it.
+The app creates the folder, `AGENTS.md`, and `project-schema.json` on first
+launch. Click **Project inbox** at the bottom of the app sidebar to open it.
 
-### Delivering a palette
+### Delivering a project
 
 1. Write the complete JSON document to a temporary file in the inbox.
 2. Rename the temporary file to a `.json` name, for example
@@ -77,7 +80,7 @@ Click **Palette inbox** at the bottom of the app sidebar to open it.
    while it is running.
 
 Files whose names start with `.` are ignored. `AGENTS.md` and
-`palette-schema.json` are reserved documentation and are never imported.
+`project-schema.json` are reserved documentation and are never imported.
 
 ### Import rules
 
@@ -94,7 +97,7 @@ Files whose names start with `.` are ignored. `AGENTS.md` and
 
 ## Drag and drop
 
-Dropping one or more `.json` palette files onto the vColor window creates new
+Dropping one or more `.json` project files onto the vColor window creates new
 projects with the same naming and duplicate rules. This is the fallback for
 web-based AI assistants that can provide a file download but cannot write to
 the local inbox. The original file is not moved or modified.
@@ -106,10 +109,10 @@ the local inbox. The original file is not moved or modified.
   because the app does not store that metadata.
 - **Import colors** in a project's context menu appends colors from JSON, CSS,
   or GIMP files to that project. To create a separate project named after the
-  palette, use the palette inbox or drag-and-drop instead.
+  theme, use the project inbox or drag-and-drop instead.
 
 ## Licensing
 
-The palette *data* remains under its upstream project's license. Put that in
-the `license` field and keep the `source` URL. vColor itself is MIT-licensed;
-see the repository `LICENSE`.
+The project data remains under its upstream project's license. Put that in the
+`license` field and keep the `source` URL. vColor itself is MIT-licensed; see
+the repository `LICENSE`.

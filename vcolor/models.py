@@ -229,7 +229,7 @@ class PaletteStore:
                     temporary_path.unlink()
                 except OSError:
                     pass
-            raise StoreError(f"Could not save palettes: {exc}") from exc
+            raise StoreError(f"Could not save projects: {exc}") from exc
 
     def _backup_corrupt_file(self) -> Path | None:
         if not self.path.exists():

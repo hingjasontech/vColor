@@ -27,19 +27,22 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QStackedWidget,
     QVBoxLayout,
     QWidget,
 )
 
 from . import theme
 from .color_utils import format_color, slugify
-from .inbox import PaletteInbox, project_from_palette, read_palette_file
+from .inbox import ProjectInbox, project_from_portable, read_project_file
 from .models import AppData, ColorEntry, PaletteStore, Project, StoreError, utc_now
+from .settings_page import SettingsPage
 from .widgets import (
     ColorItem,
     EmptyState,
     FormatComboBox,
     ProjectItem,
+    SidebarAction,
     Toast,
     UpdateBanner,
 )
@@ -55,14 +58,14 @@ class MainWindow(QMainWindow):
         version: str = "0.0.0",
         *,
         check_updates: bool = True,
-        inbox: PaletteInbox | None = None,
+        inbox: ProjectInbox | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.store = store
         self.version = version
         self.check_updates = check_updates
-        self.inbox = inbox or PaletteInbox(store.path.parent)
+        self.inbox = inbox or ProjectInbox(store.path.parent)
         self.data = AppData()
         self.current_format = "HEX"
         self._project_items: dict[str, ProjectItem] = {}
@@ -84,10 +87,23 @@ class MainWindow(QMainWindow):
         root_layout.addWidget(self.sidebar)
 
         self.main_content = self._build_main_content()
-        root_layout.addWidget(self.main_content, 1)
+        self.settings_page = SettingsPage(self.version)
+        self.page_stack = QStackedWidget(root)
+        self.page_stack.setObjectName("PageStack")
+        self.page_stack.addWidget(self.main_content)
+        self.page_stack.addWidget(self.settings_page)
+        root_layout.addWidget(self.page_stack, 1)
         self.setCentralWidget(root)
 
-        self.toast = Toast(self.main_content)
+        self.toast = Toast(self.page_stack)
+
+        self.settings_page.backRequested.connect(self.show_projects_page)
+        self.settings_page.formatChanged.connect(self._settings_format_changed)
+        self.settings_page.updateCheckChanged.connect(
+            self._update_check_changed
+        )
+        self.settings_page.checkNowRequested.connect(self.check_for_updates)
+        self.settings_page.openInboxRequested.connect(self.open_project_inbox)
 
         self._inbox_timer = QTimer(self)
         self._inbox_timer.setInterval(1500)
@@ -148,15 +164,24 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.project_scroll, 1)
 
         layout.addSpacing(12)
-        self.inbox_button = QPushButton("Palette inbox")
-        self.inbox_button.setObjectName("VersionButton")
-        self.inbox_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        footer = QWidget()
+        footer_layout = QVBoxLayout(footer)
+        footer_layout.setContentsMargins(0, 0, 0, 0)
+        footer_layout.setSpacing(2)
+
+        self.inbox_button = SidebarAction("inbox", "Project inbox")
         self.inbox_button.setToolTip(
-            "Open the folder where palettes from AI assistants arrive"
+            "Open the folder where projects from AI assistants arrive"
         )
-        self.inbox_button.setAccessibleName("Open palette inbox")
-        self.inbox_button.clicked.connect(self.open_palette_inbox)
-        layout.addWidget(self.inbox_button, 0, Qt.AlignmentFlag.AlignHCenter)
+        self.inbox_button.clicked.connect(self.open_project_inbox)
+        footer_layout.addWidget(self.inbox_button)
+
+        self.settings_button = SidebarAction("settings", "Settings")
+        self.settings_button.setToolTip("Open settings")
+        self.settings_button.clicked.connect(self.show_settings_page)
+        footer_layout.addWidget(self.settings_button)
+
+        layout.addWidget(footer)
         layout.addSpacing(6)
 
         self.version_button = QPushButton(f"vColor {self.version}")
@@ -285,9 +310,25 @@ class MainWindow(QMainWindow):
         self._inbox_timer.start()
         self._schedule_update_check()
 
+    # ---------------------------------------------------------------- pages
+    def show_projects_page(self) -> None:
+        self.page_stack.setCurrentWidget(self.main_content)
+        self.settings_button.set_selected(False)
+        self._position_floating_widgets()
+
+    def show_settings_page(self) -> None:
+        self.settings_page.load(
+            display_format=self.data.display_format,
+            update_check=self.data.update_check,
+            version=self.version,
+        )
+        self.page_stack.setCurrentWidget(self.settings_page)
+        self.settings_button.set_selected(True)
+        self._position_floating_widgets()
+
     # ---------------------------------------------------------------- inbox
-    def open_palette_inbox(self) -> None:
-        self._open_folder(self.inbox.root, "Could not open the palette inbox")
+    def open_project_inbox(self) -> None:
+        self._open_folder(self.inbox.root, "Could not open the project inbox")
 
     def _open_folder(self, path: Path, error: str) -> None:
         self.inbox.ensure()
@@ -312,7 +353,7 @@ class MainWindow(QMainWindow):
         elif result.failed:
             count = len(result.failed)
             self.toast.show_message(
-                f"Could not import {count} palette file{'s' if count != 1 else ''}",
+                f"Could not import {count} project file{'s' if count != 1 else ''}",
                 kind="error",
                 action_label="Open folder",
                 action=self._open_failed_inbox,
@@ -344,7 +385,7 @@ class MainWindow(QMainWindow):
         if len(projects) == 1:
             message = f'Imported "{projects[0].name}"'
         else:
-            message = f"Imported {len(projects)} palettes"
+            message = f"Imported {len(projects)} projects"
         if failures:
             message += f" · {failures} failed"
 
@@ -376,29 +417,29 @@ class MainWindow(QMainWindow):
         self._populate_projects()
         self._render_project()
 
-    def import_palette_files(self, paths: list[Path]) -> None:
+    def import_project_files(self, paths: list[Path]) -> None:
         previous_active_id = self.data.active_project_id
         projects: list[Project] = []
         failures = 0
         for path in paths:
             try:
-                palette = read_palette_file(path)
+                portable = read_project_file(path)
             except (OSError, ValueError):
                 failures += 1
                 continue
-            projects.append(project_from_palette(self.data, palette))
+            projects.append(project_from_portable(self.data, portable))
 
         if projects:
             self._commit_imports(projects, previous_active_id, failures=failures)
         elif failures:
             count = failures
             self.toast.show_message(
-                f"Could not import {count} palette file{'s' if count != 1 else ''}",
+                f"Could not import {count} project file{'s' if count != 1 else ''}",
                 kind="error",
                 duration=5000,
             )
 
-    def _palette_paths(self, mime) -> list[Path]:  # type: ignore[no-untyped-def]
+    def _project_paths(self, mime) -> list[Path]:  # type: ignore[no-untyped-def]
         if not mime.hasUrls():
             return []
         paths: list[Path] = []
@@ -416,24 +457,24 @@ class MainWindow(QMainWindow):
         return paths
 
     def dragEnterEvent(self, event: QDragEnterEvent) -> None:
-        if self._palette_paths(event.mimeData()):
+        if self._project_paths(event.mimeData()):
             event.acceptProposedAction()
         else:
             event.ignore()
 
     def dragMoveEvent(self, event: QDragMoveEvent) -> None:
-        if self._palette_paths(event.mimeData()):
+        if self._project_paths(event.mimeData()):
             event.acceptProposedAction()
         else:
             event.ignore()
 
     def dropEvent(self, event: QDropEvent) -> None:
-        paths = self._palette_paths(event.mimeData())
+        paths = self._project_paths(event.mimeData())
         if not paths:
             event.ignore()
             return
         event.acceptProposedAction()
-        self.import_palette_files(paths)
+        self.import_project_files(paths)
 
     # --------------------------------------------------------- update checks
     def _schedule_update_check(self) -> None:
@@ -462,6 +503,7 @@ class MainWindow(QMainWindow):
 
     def check_for_updates(self) -> None:
         self._manual_update_check = True
+        self.settings_page.set_checking(True)
         if not self._ensure_updater().check():
             # A check is already running; let its completion report the result.
             return
@@ -480,6 +522,7 @@ class MainWindow(QMainWindow):
     def _on_update_check_finished(self, success: bool) -> None:
         manual = self._manual_update_check
         self._manual_update_check = False
+        self.settings_page.set_checking(False)
         self.version_button.setEnabled(True)
         self.version_button.setText(f"vColor {self.version}")
         if not manual:
@@ -508,6 +551,8 @@ class MainWindow(QMainWindow):
         self.data = data
         self.data.ensure_active_project()
         self._apply_display_format(self.data.display_format)
+        self.settings_page.set_update_check(self.data.update_check)
+        self.settings_page.set_version(self.version)
         self._populate_projects()
         self._render_project()
         self._position_floating_widgets()
@@ -519,6 +564,7 @@ class MainWindow(QMainWindow):
         with QSignalBlocker(self.format_combo):
             self.format_combo.setCurrentIndex(index)
         self.current_format = self.format_combo.itemText(index)
+        self.settings_page.set_format(self.current_format)
 
     @property
     def active_project(self) -> Project | None:
@@ -554,6 +600,7 @@ class MainWindow(QMainWindow):
         project = self.data.find_project(project_id)
         if project is None:
             return
+        self.show_projects_page()
         self.data.active_project_id = project.id
         for item_id, item in self._project_items.items():
             item.set_selected(item_id == project.id)
@@ -580,8 +627,7 @@ class MainWindow(QMainWindow):
         if not self.data.projects:
             state = EmptyState(
                 "No projects yet",
-                "Create your first project, or ask your AI assistant for a "
-                "vColor palette.",
+                "Create your first project, or ask your AI assistant to add one.",
                 "Create project",
             )
             state.actionTriggered.connect(self.new_project)
@@ -625,14 +671,38 @@ class MainWindow(QMainWindow):
             return
         self.current_format = self.format_combo.currentText()
         self.data.display_format = self.current_format
+        self.settings_page.set_format(self.current_format)
         self._persist(silent=True)
         if self.active_project is not None:
             self._render_project()
+
+    def _settings_format_changed(self, value: str) -> None:
+        index = self.format_combo.findText(value)
+        if index < 0:
+            return
+        with QSignalBlocker(self.format_combo):
+            self.format_combo.setCurrentIndex(index)
+        self.current_format = value
+        self.data.display_format = value
+        self._persist(silent=True)
+        if self.active_project is not None:
+            self._render_project()
+
+    def _update_check_changed(self, enabled: bool) -> None:
+        if self.data.update_check == enabled:
+            return
+        self.data.update_check = enabled
+        self._persist(silent=True)
+        if not enabled:
+            self.update_banner.hide()
+        else:
+            self._schedule_update_check()
 
     # ---------------------------------------------------------- mutations
     def new_project(self) -> None:
         from .dialogs import ProjectDialog, run_dialog
 
+        self.show_projects_page()
         dialog = ProjectDialog(self)
         if run_dialog(dialog) != ProjectDialog.DialogCode.Accepted:
             return
@@ -653,7 +723,7 @@ class MainWindow(QMainWindow):
         dialog = ProjectDialog(
             self,
             title="Rename project",
-            body="Choose a new name for this palette.",
+            body="Choose a new name for this project.",
             action="Save name",
             name=project.name,
         )
@@ -714,6 +784,8 @@ class MainWindow(QMainWindow):
             else:
                 self.toast.show_message("Select a project first")
             return
+
+        self.show_projects_page()
 
         from .dialogs import ColorDialog, run_dialog
 
@@ -806,6 +878,7 @@ class MainWindow(QMainWindow):
 
     # -------------------------------------------------------- import/export
     def export_active_project(self) -> None:
+        self.show_projects_page()
         if self.active_project:
             self.export_project(self.active_project.id)
 
@@ -813,12 +886,12 @@ class MainWindow(QMainWindow):
         project = self.data.find_project(project_id)
         if project is None:
             return
-        suggested = f"{slugify(project.name, 'palette')}.json"
+        suggested = f"{slugify(project.name, 'project')}.json"
         path, selected_filter = QFileDialog.getSaveFileName(
             self,
-            "Export palette",
+            "Export project",
             suggested,
-            "JSON palette (*.json);;CSS variables (*.css);;GIMP palette (*.gpl)",
+            "JSON project (*.json);;CSS variables (*.css);;GIMP palette (*.gpl)",
         )
         if not path:
             return
@@ -838,6 +911,7 @@ class MainWindow(QMainWindow):
         self.toast.show_message(f"Exported {path_obj.name}")
 
     def import_active_project(self) -> None:
+        self.show_projects_page()
         if self.active_project:
             self.import_colors(self.active_project.id)
 
@@ -849,7 +923,7 @@ class MainWindow(QMainWindow):
             self,
             "Import colors",
             "",
-            "Palette files (*.json *.css *.gpl *.txt);;All files (*)",
+            "Project files (*.json *.css *.gpl *.txt);;All files (*)",
         )
         if not path:
             return
@@ -888,7 +962,7 @@ class MainWindow(QMainWindow):
         bar.setValue(bar.maximum())
 
     def _position_floating_widgets(self) -> None:
-        if not hasattr(self, "main_content"):
+        if not hasattr(self, "page_stack"):
             return
         self.toast.reposition()
         self.toast.raise_()
@@ -897,7 +971,7 @@ class MainWindow(QMainWindow):
         sidebar_width = max(280, min(384, round(self.width() * 0.2)))
         if self.sidebar.width() != sidebar_width:
             self.sidebar.setFixedWidth(sidebar_width)
-        available = self.main_content.width() - 96
+        available = self.page_stack.width() - 96
         self.center_column.setFixedWidth(max(560, min(1148, available)))
         self._position_floating_widgets()
 

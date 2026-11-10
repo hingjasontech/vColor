@@ -425,6 +425,52 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
         background-color: {ACCENT_PRESSED};
     }}
 
+    QWidget#SettingsPage, QWidget#SettingsContent {{
+        background: {APP_BG};
+    }}
+    QWidget#SettingsHeader {{
+        background: {SIDEBAR_BG};
+        border-bottom: 1px solid #3A3A3A;
+    }}
+    QLabel#SettingsHeaderTitle {{
+        color: {TEXT};
+        font-size: 16px;
+        font-weight: 700;
+    }}
+    QLabel#SettingsGroupTitle {{
+        color: {TEXT};
+        font-size: 15px;
+        font-weight: 700;
+        padding-left: 4px;
+    }}
+    QFrame#SettingsGroupCard {{
+        background: #303030;
+        border: 1px solid #393939;
+        border-radius: 12px;
+    }}
+    QWidget#SettingsRow {{
+        background: transparent;
+    }}
+    QLabel#SettingsRowTitle {{
+        color: {TEXT};
+        font-size: 14px;
+        font-weight: 500;
+    }}
+    QLabel#SettingsRowSubtitle {{
+        color: {TEXT_MUTED};
+        font-size: 12px;
+    }}
+    QLabel#SettingsValue {{
+        color: {TEXT_MUTED};
+        font-size: 13px;
+    }}
+    QFrame#SettingsDivider {{
+        background: #3C3C3C;
+        border: none;
+        margin-left: 16px;
+        margin-right: 16px;
+    }}
+
     QPushButton#VersionButton {{
         background: transparent;
         border: none;

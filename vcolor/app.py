@@ -62,7 +62,7 @@ def _load_font(app: QApplication) -> str:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="vcolor",
-        description="A fast, focused desktop color palette manager.",
+        description="A fast, focused desktop color project manager.",
     )
     parser.add_argument(
         "--data-dir",

@@ -13,7 +13,7 @@ from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from vcolor import theme  # noqa: E402
-from vcolor.inbox import PaletteInbox  # noqa: E402
+from vcolor.inbox import ProjectInbox  # noqa: E402
 from vcolor.main_window import MainWindow  # noqa: E402
 from vcolor.models import AppData, ColorEntry, PaletteStore, Project  # noqa: E402
 from vcolor.palette_format import PortablePalette, save_palette  # noqa: E402
@@ -52,7 +52,7 @@ class WindowSmokeTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.path = Path(self.temp.name) / "palettes.json"
         self.store = PaletteStore(self.path)
-        self.inbox = PaletteInbox(self.path.parent, partial_write_grace=0.0)
+        self.inbox = ProjectInbox(self.path.parent, partial_write_grace=0.0)
         self.window = MainWindow(self.store, inbox=self.inbox)
         self.window._loaded = True
         self.window.set_data(sample_data())
@@ -276,8 +276,8 @@ class WindowSmokeTests(unittest.TestCase):
         self.app.processEvents()
         self.assertTrue(self.window.update_banner.isVisible())
 
-    def test_palette_inbox_button_is_available(self) -> None:
-        self.assertEqual(self.window.inbox_button.text(), "Palette inbox")
+    def test_project_inbox_button_is_available(self) -> None:
+        self.assertEqual(self.window.inbox_button.text(), "Project inbox")
         self.assertTrue(self.window.inbox_button.isVisible())
         self.assertIn("AI", self.window.inbox_button.toolTip())
 
@@ -352,7 +352,7 @@ class WindowSmokeTests(unittest.TestCase):
         )
         self.window = MainWindow(
             self.store,
-            inbox=PaletteInbox(self.path.parent, partial_write_grace=0.0),
+            inbox=ProjectInbox(self.path.parent, partial_write_grace=0.0),
         )
         self.window.show()
         self.window.bootstrap()
@@ -376,9 +376,9 @@ class WindowSmokeTests(unittest.TestCase):
         mime = QMimeData()
         mime.setUrls([QUrl.fromLocalFile(str(source))])
 
-        paths = self.window._palette_paths(mime)
+        paths = self.window._project_paths(mime)
         self.assertEqual(paths, [source])
-        self.window.import_palette_files(paths)
+        self.window.import_project_files(paths)
         self.app.processEvents()
 
         self.assertEqual(self.window.active_project.name, "Dropped Theme")
@@ -394,6 +394,69 @@ class WindowSmokeTests(unittest.TestCase):
                 ColorEntry(name="Accent", hex="#0a84ff"),
             ],
         )
+
+    def test_settings_page_opens_from_sidebar(self) -> None:
+        self.window.settings_button.click()
+        self.app.processEvents()
+        self.assertIs(
+            self.window.page_stack.currentWidget(), self.window.settings_page
+        )
+        self.assertTrue(self.window.settings_page.isVisible())
+        self.assertTrue(self.window.settings_button._selected)
+
+    def test_settings_page_back_returns_to_projects(self) -> None:
+        self.window.show_settings_page()
+        self.window.settings_page.back_button.click()
+        self.app.processEvents()
+        self.assertIs(
+            self.window.page_stack.currentWidget(), self.window.main_content
+        )
+        self.assertFalse(self.window.settings_button._selected)
+
+    def test_settings_format_choice_updates_header_and_rows(self) -> None:
+        self.window.show_settings_page()
+        self.window.settings_page.format_combo.setCurrentText("RGB")
+        self.app.processEvents()
+
+        self.assertEqual(self.window.format_combo.currentText(), "RGB")
+        self.assertEqual(self.window.data.display_format, "RGB")
+        rows = self.window.body.findChildren(ColorRow)
+        self.assertEqual(rows[0].value_label.text(), "rgb(10, 132, 255)")
+        self.assertEqual(PaletteStore(self.path).load().display_format, "RGB")
+
+    def test_settings_update_toggle_persists(self) -> None:
+        self.window.show_settings_page()
+        switch = self.window.settings_page.update_switch
+        self.assertTrue(switch.isChecked())
+
+        switch.setChecked(False)
+        self.app.processEvents()
+
+        self.assertFalse(self.window.data.update_check)
+        self.assertFalse(PaletteStore(self.path).load().update_check)
+
+    def test_color_context_menu_has_adwaita_labels(self) -> None:
+        row = ColorRow("color-id", "Apple blue", "#0a84ff", "#0a84ff")
+        menu = row.build_context_menu()
+        events = []
+        row.editRequested.connect(lambda color_id: events.append(("edit", color_id)))
+        row.copyRequested.connect(lambda color_id: events.append(("copy", color_id)))
+        row.deleteRequested.connect(lambda color_id: events.append(("delete", color_id)))
+        try:
+            self.assertEqual(
+                [action.text() for action in menu.actions()],
+                ["Edit", "Copy", "", "Delete"],
+            )
+            self.assertTrue(menu.actions()[2].isSeparator())
+            menu.actions()[0].trigger()
+            menu.actions()[1].trigger()
+            menu.actions()[3].trigger()
+            self.assertEqual(
+                events,
+                [("edit", "color-id"), ("copy", "color-id"), ("delete", "color-id")],
+            )
+        finally:
+            menu.deleteLater()
 
     @staticmethod
     def release(version: str):

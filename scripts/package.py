@@ -190,8 +190,8 @@ Maintainer: {MAINTAINER}
 Installed-Size: {installed_kb}
 Depends: {", ".join(DEB_DEPENDS)}
 Homepage: {HOMEPAGE}
-Description: A fast, focused desktop color palette manager
- vColor is a desktop color palette manager built with Qt.
+Description: A fast, focused desktop color project manager
+ vColor is a desktop color project manager built with Qt.
 """
     write_file(deb_root / "DEBIAN" / "control", control)
     write_file(
@@ -225,7 +225,7 @@ def build_rpm(stage: Path, root: Path, version: str, archive: Path) -> None:
     spec = f"""Name: vcolor
 Version: {version}
 Release: 1
-Summary: A fast, focused desktop color palette manager
+Summary: A fast, focused desktop color project manager
 License: MIT
 URL: {HOMEPAGE}
 BuildArch: {rpm_arch()}
@@ -233,7 +233,7 @@ AutoReqProv: no
 {requires}
 
 %description
-vColor is a desktop color palette manager built with Qt.
+vColor is a desktop color project manager built with Qt.
 
 %install
 rm -rf %{{buildroot}}

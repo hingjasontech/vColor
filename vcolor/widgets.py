@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 
 from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
+    QFont,
     QFontMetrics,
     QIcon,
     QMouseEvent,
@@ -160,6 +162,39 @@ def draw_icon(
         painter.drawLine(QPointF(cx - s * 0.02, cy - s * 0.30), QPointF(cx + s * 0.34, cy - s * 0.30))
         painter.drawLine(QPointF(cx + s * 0.34, cy - s * 0.30), QPointF(cx + s * 0.34, cy + s * 0.05))
         painter.drawLine(QPointF(cx + s * 0.08, cy - s * 0.04), QPointF(cx + s * 0.34, cy - s * 0.30))
+    elif kind == "arrow-left":
+        painter.drawLine(QPointF(cx - s * 0.26, cy), QPointF(cx + s * 0.30, cy))
+        arrow = QPainterPath()
+        arrow.moveTo(cx - s * 0.08, cy - s * 0.20)
+        arrow.lineTo(cx - s * 0.28, cy)
+        arrow.lineTo(cx - s * 0.08, cy + s * 0.20)
+        painter.drawPath(arrow)
+    elif kind == "inbox":
+        left = cx - s * 0.36
+        right = cx + s * 0.36
+        top = cy - s * 0.30
+        bottom = cy + s * 0.32
+        painter.drawLine(QPointF(left, top), QPointF(right, top))
+        painter.drawLine(QPointF(left, top), QPointF(left, bottom))
+        painter.drawLine(QPointF(right, top), QPointF(right, bottom))
+        painter.drawLine(QPointF(left, bottom), QPointF(cx - s * 0.20, bottom))
+        painter.drawLine(QPointF(right, bottom), QPointF(cx + s * 0.20, bottom))
+        painter.drawLine(QPointF(cx - s * 0.20, bottom), QPointF(cx - s * 0.13, bottom - s * 0.16))
+        painter.drawLine(QPointF(cx + s * 0.20, bottom), QPointF(cx + s * 0.13, bottom - s * 0.16))
+        painter.drawLine(QPointF(cx - s * 0.13, bottom - s * 0.16), QPointF(cx + s * 0.13, bottom - s * 0.16))
+    elif kind == "settings":
+        painter.drawEllipse(
+            QRectF(cx - s * 0.27, cy - s * 0.27, s * 0.54, s * 0.54)
+        )
+        painter.drawEllipse(
+            QRectF(cx - s * 0.10, cy - s * 0.10, s * 0.20, s * 0.20)
+        )
+        for index in range(8):
+            angle = math.pi * index / 4.0 + math.pi / 8.0
+            painter.drawLine(
+                QPointF(cx + math.cos(angle) * s * 0.27, cy + math.sin(angle) * s * 0.27),
+                QPointF(cx + math.cos(angle) * s * 0.41, cy + math.sin(angle) * s * 0.41),
+            )
     else:
         painter.drawEllipse(QRectF(cx - s * 0.25, cy - s * 0.25, s * 0.5, s * 0.5))
 
@@ -221,6 +256,91 @@ class IconButton(QAbstractButton):
             self.icon_size,
         )
         draw_icon(painter, self.kind, icon_rect, color)
+
+
+class SidebarAction(QAbstractButton):
+    """Flat libadwaita-style sidebar row with a line icon and label."""
+
+    def __init__(
+        self, kind: str, text: str, parent: QWidget | None = None
+    ) -> None:
+        super().__init__(parent)
+        self.kind = kind
+        self._hover = False
+        self._selected = False
+        self.setText(text)
+        self.setFixedHeight(38)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setAccessibleName(text)
+        font = QFont(self.font())
+        font.setPixelSize(14)
+        font.setWeight(QFont.Weight.Medium)
+        self.setFont(font)
+
+    def set_selected(self, selected: bool) -> None:
+        if self._selected == selected:
+            return
+        self._selected = selected
+        self.update()
+
+    def enterEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        self._hover = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        self._hover = False
+        self.update()
+        super().leaveEvent(event)
+
+    def paintEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        rect = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
+
+        if self._selected:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(255, 255, 255, 24))
+            painter.drawRoundedRect(rect, 8, 8)
+        elif self._hover or self.isDown():
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(255, 255, 255, 12 if not self.isDown() else 22))
+            painter.drawRoundedRect(rect, 8, 8)
+
+        icon_color = QColor(
+            theme.TEXT if self._hover or self._selected else theme.TEXT_MUTED
+        )
+        draw_icon(
+            painter,
+            self.kind,
+            QRectF(10, (self.height() - 16) / 2.0, 16, 16),
+            icon_color,
+            pen_width=1.6,
+        )
+
+        metrics = QFontMetrics(self.font())
+        width = max(0, self.width() - 38)
+        text = metrics.elidedText(
+            self.text(), Qt.TextElideMode.ElideRight, width
+        )
+        painter.setPen(
+            QColor(theme.TEXT if self._hover or self._selected else "#D7D7D7")
+        )
+        painter.drawText(
+            QRectF(34, 0, width, self.height()),
+            Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
+            text,
+        )
+
+        if self.hasFocus():
+            painter.setPen(QPen(QColor(theme.ACCENT), 1.2))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRoundedRect(rect.adjusted(1, 1, -1, -1), 8, 8)
+
+        painter.end()
 
 
 class ColorSwatch(QWidget):
@@ -326,19 +446,27 @@ class ColorRow(QFrame):
         self.editRequested.emit(self.color_id)
         super().mouseDoubleClickEvent(event)
 
-    def contextMenuEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+    def build_context_menu(self) -> QMenu:
         menu = QMenu(self)
-        edit = menu.addAction("Edit color")
-        copy = menu.addAction(f"Copy {self._value}")
+        edit = menu.addAction("Edit")
+        copy = menu.addAction("Copy")
         menu.addSeparator()
-        delete = menu.addAction("Delete color")
-        chosen = menu.exec(event.globalPos())
-        if chosen == edit:
-            self.editRequested.emit(self.color_id)
-        elif chosen == copy:
-            self.copyRequested.emit(self.color_id)
-        elif chosen == delete:
-            self.deleteRequested.emit(self.color_id)
+        delete = menu.addAction("Delete")
+        edit.triggered.connect(
+            lambda _checked=False: self.editRequested.emit(self.color_id)
+        )
+        copy.triggered.connect(
+            lambda _checked=False: self.copyRequested.emit(self.color_id)
+        )
+        delete.triggered.connect(
+            lambda _checked=False: self.deleteRequested.emit(self.color_id)
+        )
+        return menu
+
+    def contextMenuEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        menu = self.build_context_menu()
+        menu.exec(event.globalPos())
+        menu.deleteLater()
 
 
 class ColorItem(QWidget):
@@ -433,7 +561,7 @@ class ProjectItem(QFrame):
     def contextMenuEvent(self, event) -> None:  # type: ignore[no-untyped-def]
         menu = QMenu(self)
         rename = menu.addAction("Rename project")
-        export = menu.addAction("Export palette...")
+        export = menu.addAction("Export project...")
         import_action = menu.addAction("Import colors...")
         menu.addSeparator()
         delete = menu.addAction("Delete project")

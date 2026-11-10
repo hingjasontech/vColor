@@ -71,7 +71,7 @@ class ProjectDialog(QDialog):
         parent: QWidget | None = None,
         *,
         title: str = "Create project",
-        body: str = "Give this palette a name. You can rename it later.",
+        body: str = "Give this project a name. You can rename it later.",
         action: str = "Create project",
         name: str = "",
     ) -> None:
@@ -99,7 +99,7 @@ class ProjectDialog(QDialog):
         root.addWidget(field_label)
 
         self.name_input = QLineEdit(name)
-        self.name_input.setPlaceholderText("e.g. Website palette")
+        self.name_input.setPlaceholderText("e.g. Website project")
         self.name_input.setMaxLength(80)
         self.name_input.returnPressed.connect(self._accept_if_valid)
         root.addWidget(self.name_input)

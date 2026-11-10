@@ -1,4 +1,4 @@
-"""vColor: a fast desktop color palette manager."""
+"""vColor: a fast desktop color project manager."""
 
 __version__ = "1.1.1"
 
