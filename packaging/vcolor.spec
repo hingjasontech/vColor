@@ -71,8 +71,8 @@ if sys.platform == "darwin":
         info_plist={
             "CFBundleName": "vColor",
             "CFBundleDisplayName": "vColor",
-            "CFBundleShortVersionString": "1.1.1",
-            "CFBundleVersion": "1.1.1",
+            "CFBundleShortVersionString": "1.2.0",
+            "CFBundleVersion": "1.2.0",
             "NSHighResolutionCapable": True,
             "LSMinimumSystemVersion": "11.0",
         },
