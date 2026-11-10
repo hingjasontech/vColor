@@ -14,10 +14,10 @@
 - Automatic saving with atomic JSON writes — no Save button needed.
 - Import colors from JSON, CSS, or GIMP `.gpl` palettes.
 - Export palettes as portable JSON, CSS custom properties, or GIMP `.gpl`.
-- Portable JSON palette files with a headless CLI for validating, converting,
-  exporting, and importing palettes.
-- No built-in theme catalog: fetch a theme's official colors and import them as
-  a project.
+- Watched palette inbox: palettes from an AI assistant appear automatically.
+- Drag a `.json` palette file onto the window to add it as a project.
+- No built-in theme catalog: ask your AI assistant for a theme, or supply the
+  official colors yourself.
 - Starts with an empty workspace so you can create your own projects.
 - Bundled Inter font and custom-painted icons — no icon theme dependency.
 - Keyboard shortcuts and project context menus.
@@ -51,8 +51,7 @@ Click the `vColor <version>` label at the bottom of the sidebar to check
 manually. It shows a short confirmation toast.
 
 vColor never downloads or installs updates by itself; it only opens the release
-page. To opt out, set `"update_check": false` in `palettes.json`, or start the
-app with `--no-update-check`.
+page. To opt out, set `"update_check": false` in `palettes.json`.
 
 ## Keyboard shortcuts
 
@@ -67,35 +66,33 @@ Double-click a project to rename it. Right-click a project for export/import.
 Click a color tile to copy its value in the current display format; use the
 pencil button on the tile to edit it, or the trash button to delete it.
 
-## Portable palettes and the CLI
+## Palettes from an AI assistant
 
-Palettes can live outside the app as standalone JSON files such as
-`catppuccin-mocha.json`. The same format is used by **Export → JSON** in the
-GUI. vColor does not bundle a theme catalog; get the official colors from the
-upstream project and write the JSON file first.
+Ask your AI assistant for a vColor palette, for example “generate a Catppuccin
+Mocha theme using vColor.” The assistant writes a portable `.json` palette into
+vColor's palette inbox, and the project appears in the app automatically — even
+if vColor is already open. If it was closed, the project is added the next time
+you launch it.
 
-```bash
-# From a source checkout
-uv run python -m vcolor palette show catppuccin-mocha.json
-uv run python -m vcolor palette install catppuccin-mocha.json
-uv run python -m vcolor palette export catppuccin-mocha.json catppuccin-mocha.css
+You can also drag one or more `.json` palette files onto the vColor window, or
+use **Export → JSON** to save a project in the same portable format.
 
-# Installed package
-vcolor-cli install catppuccin-mocha.json
-```
+Click **Palette inbox** at the bottom of the sidebar to open the folder where
+palettes arrive. Duplicate names are added as numbered copies, and a toast
+offers **Undo** after an import.
 
-See [Portable palettes](PALETTES.md) for the format, the JSON Schema, and every
-command.
+See [Portable palettes](PALETTES.md) for the file format and import rules.
 
 ## Where data lives
 
 | Platform | Path |
 | --- | --- |
-| Linux | `$XDG_DATA_HOME/vColor/palettes.json` (usually `~/.local/share/vColor/`) |
-| macOS | `~/Library/Application Support/vColor/palettes.json` |
-| Windows | `%APPDATA%\vColor\palettes.json` |
+| Linux | `$XDG_DATA_HOME/vColor/` (usually `~/.local/share/vColor/`) |
+| macOS | `~/Library/Application Support/vColor/` |
+| Windows | `%APPDATA%\vColor\` |
 
-Pass `--data-dir /some/path` to use a different location.
+`palettes.json` stores your projects. `inbox/` is the watched palette inbox,
+with `imported/` and `failed/` subfolders for archived files.
 
 Saves are atomic: data is written to a temporary file, flushed to disk, and
 then moved into place. If the JSON file is corrupt, vColor moves it aside as

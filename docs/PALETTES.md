@@ -2,13 +2,13 @@
 
 A vColor palette is a small JSON document that can be stored, shared, and
 version-controlled on its own — `catppuccin-mocha.json`, `libadwaita.json`,
-`material-3.json`, and so on. The same file works with the GUI, the headless
-CLI, and any script that can read JSON.
+`material-3.json`, and so on. The same format is used by the GUI's
+**Export → JSON** action and by the watched palette inbox.
 
 vColor does not bundle a theme catalog. Theme colors change upstream and have
 different licenses, so the intended workflow is: fetch the official palette,
-write a portable file, then import it. Coding agents can follow the recipes in
-[AGENTS.md](../AGENTS.md).
+write a portable file, then let vColor import it. Coding agents can follow the
+recipes in [AGENTS.md](../AGENTS.md).
 
 ## File format
 
@@ -47,104 +47,66 @@ canonical array form. Hex values are normalized to lowercase `#rrggbb`;
 invalid entries are skipped when reading, and a palette with no valid colors is
 rejected.
 
-The machine-readable JSON Schema is available with:
+The machine-readable JSON Schema is written into the palette inbox as
+`palette-schema.json` and lives in the source tree in
+[`vcolor/palette_format.py`](../vcolor/palette_format.py) as `PALETTE_SCHEMA`.
 
-```bash
-uv run python -m vcolor palette schema
-```
+## The palette inbox
 
-## Preparing a palette
+vColor watches an inbox folder inside its application data directory. A valid
+JSON file placed there becomes a new project automatically and is made active.
+The file is then moved into `inbox/imported/`; invalid files are moved into
+`inbox/failed/`.
 
-1. Find the official colors on the upstream project's website or repository.
-   Record the source URL and license.
-2. Write a JSON file using the format above.
-3. Validate it:
+| Platform | Inbox path |
+| --- | --- |
+| Windows | `%APPDATA%\vColor\inbox` |
+| macOS | `~/Library/Application Support/vColor/inbox` |
+| Linux | `${XDG_DATA_HOME:-$HOME/.local/share}/vColor/inbox` |
 
-   ```bash
-   uv run python -m vcolor palette show my-theme.json
-   ```
+The app creates the folder and a short `AGENTS.md` contract on first launch.
+Click **Palette inbox** at the bottom of the app sidebar to open it.
 
-4. Install it into vColor:
+### Delivering a palette
 
-   ```bash
-   uv run python -m vcolor palette install my-theme.json
-   ```
+1. Write the complete JSON document to a temporary file in the inbox.
+2. Rename the temporary file to a `.json` name, for example
+   `catppuccin-mocha.json`. This atomic rename prevents vColor from reading a
+   half-written file.
+3. Leave the file there. vColor scans at startup and every couple of seconds
+   while it is running.
 
-`install` creates a project in the same `palettes.json` the GUI uses and makes
-it active. Restart vColor if it is already open. It refuses to overwrite an
-existing project unless you pass `--replace`. The app stores the palette name
-and colors; keep the JSON file as the source of truth for `source`, `license`,
-and `tags`.
+Files whose names start with `.` are ignored. `AGENTS.md` and
+`palette-schema.json` are reserved documentation and are never imported.
 
-## Command line
+### Import rules
 
-The `vcolor palette` commands work without Qt. From a source checkout, prefix
-them with `uv run python -m`; when the package is installed, use `vcolor-cli`
-without the `palette` word.
+- Every valid file creates a **new project** and becomes the active project.
+- A duplicate name gets a numbered copy: `Catppuccin Mocha`, then
+  `Catppuccin Mocha (2)`, `Catppuccin Mocha (3)`, and so on. Existing projects
+  are never overwritten.
+- The app stores only the project name and colors. `source`, `license`, and
+  `tags` stay in the JSON file as the source of truth.
+- Imported files are archived in `inbox/imported/`; failed files are kept in
+  `inbox/failed/`.
+- The toast notification offers **Undo**, which removes the imported project
+  and restores the previously active project.
 
-```bash
-# Validate and inspect a portable file
-uv run python -m vcolor palette show catppuccin-mocha.json
-uv run python -m vcolor palette show catppuccin-mocha.json --json
+## Drag and drop
 
-# Create a palette from explicit colors
-uv run python -m vcolor palette create "Brand" \
-  --id brand \
-  --color primary=#0a84ff \
-  --color surface=#101014 \
-  --tag dark \
-  --output brand.json
-
-# Normalize an upstream JSON, CSS, or GPL file
-uv run python -m vcolor palette convert upstream.css \
-  --name "My Theme" \
-  --source "https://example.com/my-theme" \
-  --license MIT \
-  --tag dark \
-  --output my-theme.json
-
-# Export a portable file to another format
-uv run python -m vcolor palette export my-theme.json my-theme.css
-uv run python -m vcolor palette export my-theme.json my-theme.gpl
-
-# Add it to the app and inspect installed projects
-uv run python -m vcolor palette install my-theme.json
-uv run python -m vcolor palette list
-```
-
-`export` infers the format from the file extension; pass `--format` to override
-it. When the output is `.json`, the full portable document is preserved,
-including metadata. Use `--data-dir` with `install` or `list` to target a test
-profile instead of the real one.
-
-### Metadata flags
-
-`create` and `convert` accept `--id`, `--description`, `--source`, `--license`,
-and repeatable `--tag`. `convert` also accepts `--name`. With no `--output`,
-both commands print the portable JSON to stdout.
-
-### Supported input files
-
-`show`, `convert`, `export`, and `install` accept:
-
-- vColor portable JSON (the canonical format)
-- simple legacy JSON such as `{"name": "...", "colors": [{"name": ..., "hex": ...}]}`
-- JSON arrays of hex strings or `{name, hex}` objects
-- CSS files with `--variable: #rrggbb` declarations or plain hex values
-- GIMP `.gpl` palettes
-
-Complex upstream theme files (nested JSON, Lua, SCSS) should be reduced to
-named hex values first, then written as portable JSON.
+Dropping one or more `.json` palette files onto the vColor window creates new
+projects with the same naming and duplicate rules. This is the fallback for
+web-based AI assistants that can provide a file download but cannot write to
+the local inbox. The original file is not moved or modified.
 
 ## GUI integration
 
-- **Export → JSON** writes the full portable document, including the
-  `format`, `version`, and `id` fields.
-- **Import colors** in the GUI appends the file's colors to the active project.
-  To create a separate project named after the palette, use
-  `vcolor palette install` instead.
-- Installing with the CLI is equivalent to creating the project in the GUI and
-  marks it active.
+- **Export → JSON** writes the full portable document, including the `format`,
+  `version`, and `id` fields, but without `source`, `license`, or `tags`
+  because the app does not store that metadata.
+- **Import colors** in a project's context menu appends colors from JSON, CSS,
+  or GIMP files to that project. To create a separate project named after the
+  palette, use the palette inbox or drag-and-drop instead.
 
 ## Licensing
 

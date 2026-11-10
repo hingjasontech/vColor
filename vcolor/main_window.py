@@ -9,6 +9,9 @@ from PySide6.QtCore import QSignalBlocker, QSize, Qt, QTimer, QUrl
 from PySide6.QtGui import (
     QCloseEvent,
     QDesktopServices,
+    QDragEnterEvent,
+    QDragMoveEvent,
+    QDropEvent,
     QGuiApplication,
     QKeySequence,
     QResizeEvent,
@@ -30,6 +33,7 @@ from PySide6.QtWidgets import (
 
 from . import theme
 from .color_utils import format_color, slugify
+from .inbox import PaletteInbox, project_from_palette, read_palette_file
 from .models import AppData, ColorEntry, PaletteStore, Project, StoreError, utc_now
 from .widgets import (
     ColorItem,
@@ -51,12 +55,14 @@ class MainWindow(QMainWindow):
         version: str = "0.0.0",
         *,
         check_updates: bool = True,
+        inbox: PaletteInbox | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.store = store
         self.version = version
         self.check_updates = check_updates
+        self.inbox = inbox or PaletteInbox(store.path.parent)
         self.data = AppData()
         self.current_format = "HEX"
         self._project_items: dict[str, ProjectItem] = {}
@@ -82,6 +88,11 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(root)
 
         self.toast = Toast(self.main_content)
+
+        self._inbox_timer = QTimer(self)
+        self._inbox_timer.setInterval(1500)
+        self._inbox_timer.timeout.connect(self._process_inbox)
+        self.setAcceptDrops(True)
 
         self._install_shortcuts()
         self._render_project()
@@ -137,6 +148,17 @@ class MainWindow(QMainWindow):
         layout.addWidget(self.project_scroll, 1)
 
         layout.addSpacing(12)
+        self.inbox_button = QPushButton("Palette inbox")
+        self.inbox_button.setObjectName("VersionButton")
+        self.inbox_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.inbox_button.setToolTip(
+            "Open the folder where palettes from AI assistants arrive"
+        )
+        self.inbox_button.setAccessibleName("Open palette inbox")
+        self.inbox_button.clicked.connect(self.open_palette_inbox)
+        layout.addWidget(self.inbox_button, 0, Qt.AlignmentFlag.AlignHCenter)
+        layout.addSpacing(6)
+
         self.version_button = QPushButton(f"vColor {self.version}")
         self.version_button.setObjectName("VersionButton")
         self.version_button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -259,7 +281,159 @@ class MainWindow(QMainWindow):
             return
         self._loaded = True
         self.set_data(self.store.load())
+        self._process_inbox()
+        self._inbox_timer.start()
         self._schedule_update_check()
+
+    # ---------------------------------------------------------------- inbox
+    def open_palette_inbox(self) -> None:
+        self._open_folder(self.inbox.root, "Could not open the palette inbox")
+
+    def _open_folder(self, path: Path, error: str) -> None:
+        self.inbox.ensure()
+        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
+            self.toast.show_message(error, kind="error", duration=4000)
+
+    def _open_failed_inbox(self) -> None:
+        self._open_folder(self.inbox.failed_dir, "Could not open the failed folder")
+
+    def _process_inbox(self) -> None:
+        if not self._loaded or QApplication.activeModalWidget() is not None:
+            return
+
+        previous_active_id = self.data.active_project_id
+        result = self.inbox.scan(self.data)
+        if result.imported:
+            self._commit_imports(
+                [item.project for item in result.imported],
+                previous_active_id,
+                failures=len(result.failed),
+            )
+        elif result.failed:
+            count = len(result.failed)
+            self.toast.show_message(
+                f"Could not import {count} palette file{'s' if count != 1 else ''}",
+                kind="error",
+                action_label="Open folder",
+                action=self._open_failed_inbox,
+                duration=6000,
+            )
+
+    def _commit_imports(
+        self,
+        projects: list[Project],
+        previous_active_id: str | None,
+        *,
+        failures: int = 0,
+    ) -> None:
+        if not projects:
+            return
+        self.data.active_project_id = projects[-1].id
+        self._persist(silent=True)
+        self._populate_projects()
+        self._render_project()
+        self._show_import_toast(projects, previous_active_id, failures=failures)
+
+    def _show_import_toast(
+        self,
+        projects: list[Project],
+        previous_active_id: str | None,
+        *,
+        failures: int = 0,
+    ) -> None:
+        if len(projects) == 1:
+            message = f'Imported "{projects[0].name}"'
+        else:
+            message = f"Imported {len(projects)} palettes"
+        if failures:
+            message += f" · {failures} failed"
+
+        project_ids = [project.id for project in projects]
+        self.toast.show_message(
+            message,
+            action_label="Undo",
+            action=lambda: self._undo_imports(project_ids, previous_active_id),
+            duration=5200,
+        )
+
+    def _undo_imports(
+        self, project_ids: list[str], previous_active_id: str | None
+    ) -> None:
+        removed = False
+        for project_id in project_ids:
+            project = self.data.find_project(project_id)
+            if project is not None:
+                self.data.projects.remove(project)
+                removed = True
+        if not removed:
+            return
+
+        if previous_active_id and self.data.find_project(previous_active_id):
+            self.data.active_project_id = previous_active_id
+        else:
+            self.data.ensure_active_project()
+        self._persist(silent=True)
+        self._populate_projects()
+        self._render_project()
+
+    def import_palette_files(self, paths: list[Path]) -> None:
+        previous_active_id = self.data.active_project_id
+        projects: list[Project] = []
+        failures = 0
+        for path in paths:
+            try:
+                palette = read_palette_file(path)
+            except (OSError, ValueError):
+                failures += 1
+                continue
+            projects.append(project_from_palette(self.data, palette))
+
+        if projects:
+            self._commit_imports(projects, previous_active_id, failures=failures)
+        elif failures:
+            count = failures
+            self.toast.show_message(
+                f"Could not import {count} palette file{'s' if count != 1 else ''}",
+                kind="error",
+                duration=5000,
+            )
+
+    def _palette_paths(self, mime) -> list[Path]:  # type: ignore[no-untyped-def]
+        if not mime.hasUrls():
+            return []
+        paths: list[Path] = []
+        for url in mime.urls():
+            if not url.isLocalFile():
+                continue
+            path = Path(url.toLocalFile())
+            if path.suffix.casefold() != ".json":
+                continue
+            try:
+                if path.is_file():
+                    paths.append(path)
+            except OSError:
+                continue
+        return paths
+
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        if self._palette_paths(event.mimeData()):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dragMoveEvent(self, event: QDragMoveEvent) -> None:
+        if self._palette_paths(event.mimeData()):
+            event.acceptProposedAction()
+        else:
+            event.ignore()
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        paths = self._palette_paths(event.mimeData())
+        if not paths:
+            event.ignore()
+            return
+        event.acceptProposedAction()
+        self.import_palette_files(paths)
 
     # --------------------------------------------------------- update checks
     def _schedule_update_check(self) -> None:
@@ -406,7 +580,8 @@ class MainWindow(QMainWindow):
         if not self.data.projects:
             state = EmptyState(
                 "No projects yet",
-                "Create your first project",
+                "Create your first project, or ask your AI assistant for a "
+                "vColor palette.",
                 "Create project",
             )
             state.actionTriggered.connect(self.new_project)
@@ -735,6 +910,7 @@ class MainWindow(QMainWindow):
         self._update_responsive_layout()
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        self._inbox_timer.stop()
         if self._loaded:
             self._persist(silent=True)
         super().closeEvent(event)

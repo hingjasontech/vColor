@@ -30,9 +30,6 @@ dev = ["pyinstaller>=6.11,<7"]
 [project.gui-scripts]
 vcolor = "vcolor.app:main"
 
-[project.scripts]
-vcolor-cli = "vcolor.cli:console_main"
-
 [tool.setuptools.packages.find]
 include = ["vcolor*"]
 
