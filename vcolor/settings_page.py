@@ -6,6 +6,8 @@ from PySide6.QtCore import QRectF, QSignalBlocker, Qt, Signal
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import (
     QAbstractButton,
+    QColorDialog,
+    QDialog,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -17,6 +19,7 @@ from PySide6.QtWidgets import (
 )
 
 from . import theme
+from .color_utils import DEFAULT_ACCENT
 from .widgets import FormatComboBox, IconButton
 
 
@@ -69,6 +72,44 @@ class Switch(QAbstractButton):
             painter.setPen(QPen(QColor(theme.ACCENT), 1.4))
             painter.setBrush(Qt.BrushStyle.NoBrush)
             painter.drawRoundedRect(track.adjusted(-1, -1, 1, 1), radius + 1, radius + 1)
+
+        painter.end()
+
+
+class AccentColorButton(QAbstractButton):
+    """A round color swatch that opens the system color picker."""
+
+    def __init__(
+        self, color: str = DEFAULT_ACCENT, parent: QWidget | None = None
+    ) -> None:
+        super().__init__(parent)
+        self._color = QColor(color)
+        self.setFixedSize(34, 34)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self.setToolTip("Choose accent color")
+        self.setAccessibleName("Accent color")
+
+    def color(self) -> str:
+        return self._color.name()
+
+    def set_color(self, color: str) -> None:
+        self._color = QColor(color)
+        self.update()
+
+    def paintEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+
+        rect = QRectF(self.rect()).adjusted(4, 4, -4, -4)
+        painter.setPen(QPen(QColor(255, 255, 255, 46), 1.2))
+        painter.setBrush(self._color)
+        painter.drawEllipse(rect)
+
+        if self.hasFocus():
+            painter.setPen(QPen(QColor(theme.TEXT), 1.4))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawEllipse(rect.adjusted(-2, -2, 2, 2))
 
         painter.end()
 
@@ -150,13 +191,17 @@ class SettingsPage(QWidget):
     backRequested = Signal()
     formatChanged = Signal(str)
     showHexHashChanged = Signal(bool)
+    systemAccentChanged = Signal(bool)
+    accentColorChanged = Signal(str)
     updateCheckChanged = Signal(bool)
     checkNowRequested = Signal()
+    sourceRequested = Signal()
 
     def __init__(self, version: str = "0.0.0", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("SettingsPage")
         self._version = version
+        self._accent_color = DEFAULT_ACCENT
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -227,6 +272,28 @@ class SettingsPage(QWidget):
 
     def _build_appearance_group(self) -> SettingsGroup:
         group = SettingsGroup("Appearance")
+
+        self.system_accent_switch = Switch()
+        self.system_accent_switch.setAccessibleName("Follow the system accent color")
+        self.system_accent_switch.toggled.connect(self.systemAccentChanged.emit)
+        group.add_row(
+            SettingsRow(
+                "Follow system accent color",
+                "Match the accent color used by your operating system.",
+                self.system_accent_switch,
+            )
+        )
+
+        self.accent_button = AccentColorButton(self._accent_color)
+        self.accent_button.clicked.connect(self._choose_accent_color)
+        group.add_row(
+            SettingsRow(
+                "Accent color",
+                "Used for highlights, links, and controls across vColor.",
+                self.accent_button,
+            )
+        )
+
         self.format_combo = FormatComboBox()
         self.format_combo.addItems(["HEX", "RGB", "HSL", "OKLCH"])
         self.format_combo.setAccessibleName("Color format")
@@ -290,7 +357,47 @@ class SettingsPage(QWidget):
                 self.version_label,
             )
         )
+
+        self.source_button = QPushButton("Open GitHub")
+        self.source_button.setObjectName("SecondaryButton")
+        self.source_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.source_button.setAccessibleName("Open the vColor source code on GitHub")
+        self.source_button.clicked.connect(self.sourceRequested.emit)
+        group.add_row(
+            SettingsRow(
+                "Source code",
+                "Browse the vColor source code on GitHub.",
+                self.source_button,
+            )
+        )
         return group
+
+    def _choose_accent_color(self) -> None:
+        from .dialogs import run_dialog
+
+        picker = QColorDialog(QColor(self._accent_color), self)
+        picker.setWindowTitle("Choose accent color")
+        if run_dialog(picker) != QDialog.DialogCode.Accepted:
+            return
+        color = picker.selectedColor()
+        if not color.isValid():
+            return
+        value = color.name()
+        self.set_use_system_accent(False)
+        self.set_accent_color(value)
+        self.accentColorChanged.emit(value)
+
+    def set_use_system_accent(self, enabled: bool) -> None:
+        with QSignalBlocker(self.system_accent_switch):
+            self.system_accent_switch.setChecked(enabled)
+
+    def set_accent_color(self, value: str) -> None:
+        self._accent_color = value
+        self.accent_button.set_color(value)
+
+    def set_accent(self, use_system: bool, value: str) -> None:
+        self.set_use_system_accent(use_system)
+        self.set_accent_color(value)
 
     def set_format(self, value: str) -> None:
         with QSignalBlocker(self.format_combo):
@@ -317,11 +424,14 @@ class SettingsPage(QWidget):
         *,
         display_format: str,
         show_hex_hash: bool,
+        use_system_accent: bool,
+        accent_color: str,
         update_check: bool,
         version: str | None = None,
     ) -> None:
         self.set_format(display_format)
         self.set_show_hex_hash(show_hex_hash)
+        self.set_accent(use_system_accent, accent_color)
         self.set_update_check(update_check)
         if version is not None:
             self.set_version(version)

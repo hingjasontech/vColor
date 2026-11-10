@@ -12,6 +12,8 @@
 - Format selector updates the values shown and copied in the list, and remembers
   your choice between sessions.
 - Optional HEX display and copy without the leading `#`.
+- Accent color that follows your operating system by default, with a custom
+  color picker in Settings.
 - Automatic saving with atomic JSON writes — no Save button needed.
 - Import a project from a portable `.json` file with **Import project**.
 - Import colors from JSON, CSS, or GIMP `.gpl` files into an existing project.
@@ -25,7 +27,8 @@
 - Native file dialogs and native color picker on each platform.
 - Automatic update checks against GitHub Releases, with a download banner when
   a newer version exists.
-- A Settings page for color format, HEX prefix, and update checks.
+- A Settings page for accent color, color format, HEX prefix, updates, and the
+  project's GitHub source.
 
 ## Installing
 
@@ -49,17 +52,25 @@ every 24 hours. If the release is newer, a banner appears above the color list
 with a **Download** button that opens the release page in your browser. Dismiss
 the banner to hide that version until the next one is published.
 
-Click the `vColor <version>` label at the bottom of the sidebar, or open
-**Settings**, to check manually. It shows a short confirmation toast.
+Open **Settings** and click **Check now** to check manually. It shows a short
+confirmation toast.
 
 vColor never downloads or installs updates by itself; it only opens the release
 page. To opt out, set `"update_check": false` in `palettes.json`.
 
 ## Settings
 
-Click **Settings** at the bottom of the sidebar to change the color format,
-choose whether HEX values show a leading `#`, toggle automatic update checks, or
-check for updates now. Click the back arrow to return to your projects.
+Click **Settings** at the bottom of the sidebar to change the accent color, the
+color format, whether HEX values show a leading `#`, automatic update checks, or
+to check for updates now. Click the back arrow to return to your projects.
+
+Under **Appearance**, vColor follows your operating system's accent color by
+default. Turn off **Follow system accent color**, or click the color swatch, to
+pick a custom accent. If the system color cannot be detected, vColor uses
+`#477eeb`.
+
+Under **About**, **Open GitHub** opens
+[the vColor source code](https://github.com/hingjasontech/vColor).
 
 ## Keyboard shortcuts
 
@@ -71,7 +82,8 @@ check for updates now. Click the back arrow to return to your projects.
 | Export active project | `Ctrl/Cmd+E` |
 | Import colors into active project | `Ctrl/Cmd+I` |
 
-Double-click a project to rename it. Right-click a project for export/import.
+Double-click a project to rename it. Right-click a project to duplicate it,
+export it, or import colors into it.
 Click a color tile to copy its value in the current display format; use the
 pencil button on the tile to edit it, or the trash button to delete it. You can
 also right-click a color for **Edit**, **Copy**, and **Delete**.

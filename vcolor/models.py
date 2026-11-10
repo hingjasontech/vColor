@@ -12,7 +12,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from .color_utils import DISPLAY_FORMATS, ColorError, normalize_hex
+from .color_utils import DEFAULT_ACCENT, DISPLAY_FORMATS, ColorError, normalize_hex
 
 DATA_VERSION = 1
 
@@ -107,6 +107,8 @@ class AppData:
     active_project_id: str | None = None
     display_format: str = "HEX"
     show_hex_hash: bool = True
+    use_system_accent: bool = True
+    accent_color: str = DEFAULT_ACCENT
     update_check: bool = True
     last_update_check: str | None = None
     skipped_version: str | None = None
@@ -139,6 +141,8 @@ class AppData:
             "active_project_id": self.active_project_id,
             "display_format": self.display_format,
             "show_hex_hash": self.show_hex_hash,
+            "use_system_accent": self.use_system_accent,
+            "accent_color": self.accent_color,
             "update_check": self.update_check,
             "last_update_check": self.last_update_check,
             "skipped_version": self.skipped_version,
@@ -163,6 +167,15 @@ class AppData:
         show_hex_hash = raw.get("show_hex_hash")
         if not isinstance(show_hex_hash, bool):
             show_hex_hash = True
+        use_system_accent = raw.get("use_system_accent")
+        if not isinstance(use_system_accent, bool):
+            use_system_accent = True
+        try:
+            accent_color = normalize_hex(
+                str(raw.get("accent_color") or DEFAULT_ACCENT)
+            )
+        except (ColorError, TypeError):
+            accent_color = DEFAULT_ACCENT
         last_check = raw.get("last_update_check")
         skipped = raw.get("skipped_version")
         data = cls(
@@ -170,6 +183,8 @@ class AppData:
             active_project_id=active,
             display_format=display_format,
             show_hex_hash=show_hex_hash,
+            use_system_accent=use_system_accent,
+            accent_color=accent_color,
             update_check=update_check,
             last_update_check=str(last_check) if last_check else None,
             skipped_version=str(skipped) if skipped else None,

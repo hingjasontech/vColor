@@ -8,9 +8,9 @@ from pathlib import Path
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QTimer, Qt  # noqa: E402
-from PySide6.QtGui import QFontDatabase  # noqa: E402
+from PySide6.QtGui import QColor, QFont, QFontDatabase  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
-from PySide6.QtWidgets import QApplication  # noqa: E402
+from PySide6.QtWidgets import QApplication, QDialog, QPushButton  # noqa: E402
 
 from vcolor import theme  # noqa: E402
 from vcolor.main_window import MainWindow  # noqa: E402
@@ -45,9 +45,13 @@ class WindowSmokeTests(unittest.TestCase):
         )
         families = QFontDatabase.applicationFontFamilies(font_id)
         family = families[0] if families else "Noto Sans"
+        font = QFont(family)
+        font.setPixelSize(14)
+        cls.app.setFont(font)
         cls.app.setStyleSheet(theme.build_stylesheet(family))
 
     def setUp(self) -> None:
+        theme.set_accent(theme.DEFAULT_ACCENT)
         self.temp = tempfile.TemporaryDirectory()
         self.path = Path(self.temp.name) / "palettes.json"
         self.store = PaletteStore(self.path)
@@ -243,9 +247,69 @@ class WindowSmokeTests(unittest.TestCase):
         loaded = PaletteStore(self.path).load()
         self.assertEqual(loaded.active_project_id, second.id)
 
+    def test_project_context_menu_has_duplicate_action(self) -> None:
+        item = next(iter(self.window._project_items.values()))
+        duplicate_ids: list[str] = []
+        item.duplicateRequested.connect(duplicate_ids.append)
+        menu = item.build_context_menu()
+        try:
+            actions = {action.text(): action for action in menu.actions()}
+            self.assertIn("Duplicate project", actions)
+            actions["Duplicate project"].trigger()
+            self.assertEqual(duplicate_ids, [item.project_id])
+        finally:
+            menu.deleteLater()
+
+    def test_duplicate_project_copies_colors_and_selects_copy(self) -> None:
+        original = self.window.active_project
+        original_color_ids = {color.id for color in original.colors}
+        self.window.duplicate_project(original.id)
+        self.app.processEvents()
+
+        projects = self.window.data.projects
+        self.assertEqual(
+            [project.name for project in projects],
+            ["Website", "Website (2)", "Mobile app", "Brand"],
+        )
+        duplicate = projects[1]
+        self.assertNotEqual(duplicate.id, original.id)
+        self.assertEqual(
+            [color.name for color in duplicate.colors],
+            [color.name for color in original.colors],
+        )
+        self.assertEqual(
+            [color.hex for color in duplicate.colors],
+            [color.hex for color in original.colors],
+        )
+        self.assertTrue(
+            original_color_ids.isdisjoint(color.id for color in duplicate.colors)
+        )
+        self.assertEqual(self.window.data.active_project_id, duplicate.id)
+        self.assertTrue(self.window._project_items[duplicate.id].property("selected"))
+
+        loaded = PaletteStore(self.path).load()
+        self.assertEqual(loaded.active_project_id, duplicate.id)
+        self.assertEqual(len(loaded.projects), 4)
+
+    def test_duplicating_twice_keeps_numbered_names(self) -> None:
+        original = self.window.active_project
+        self.window.duplicate_project(original.id)
+        self.window.duplicate_project(original.id)
+        self.app.processEvents()
+
+        names = [project.name for project in self.window.data.projects]
+        self.assertEqual(names[:3], ["Website", "Website (3)", "Website (2)"])
+
     def test_update_banner_is_hidden_at_start(self) -> None:
         self.assertFalse(self.window.update_banner.isVisible())
-        self.assertEqual(self.window.version_button.text(), "vColor 0.0.0")
+
+    def test_sidebar_has_no_version_label(self) -> None:
+        labels = [
+            button.text()
+            for button in self.window.sidebar.findChildren(QPushButton)
+        ]
+        self.assertNotIn("vColor 0.0.0", labels)
+        self.assertEqual(self.window.findChildren(QPushButton, "VersionButton"), [])
 
     def test_available_update_shows_banner(self) -> None:
         self.window._on_update_available(self.release("9.9.9"))
@@ -447,6 +511,84 @@ class WindowSmokeTests(unittest.TestCase):
 
         self.assertFalse(self.window.data.update_check)
         self.assertFalse(PaletteStore(self.path).load().update_check)
+
+    def test_accent_follows_the_system_by_default(self) -> None:
+        from unittest.mock import patch
+
+        with patch(
+            "vcolor.main_window.system_accent_color", return_value="#abcdef"
+        ):
+            self.window.set_data(sample_data())
+
+        self.window.show_settings_page()
+        self.assertTrue(self.window.data.use_system_accent)
+        self.assertTrue(self.window.settings_page.system_accent_switch.isChecked())
+        self.assertEqual(theme.ACCENT, "#abcdef")
+        self.assertEqual(self.window.settings_page.accent_button.color(), "#abcdef")
+
+    def test_follow_system_accent_switch_applies_detected_color(self) -> None:
+        from unittest.mock import patch
+
+        self.window.show_settings_page()
+        self.window.settings_page.system_accent_switch.setChecked(False)
+        self.app.processEvents()
+        self.assertFalse(self.window.data.use_system_accent)
+
+        with patch(
+            "vcolor.main_window.system_accent_color", return_value="#aabbcc"
+        ):
+            self.window.settings_page.system_accent_switch.setChecked(True)
+        self.app.processEvents()
+
+        self.assertTrue(self.window.data.use_system_accent)
+        self.assertEqual(theme.ACCENT, "#aabbcc")
+        self.assertEqual(self.window.settings_page.accent_button.color(), "#aabbcc")
+
+    def test_choosing_an_accent_color_turns_off_system_follow(self) -> None:
+        from unittest.mock import patch
+
+        class Picker:
+            def __init__(self, *args, **kwargs) -> None:
+                pass
+
+            def setWindowTitle(self, title: str) -> None:
+                pass
+
+            def selectedColor(self) -> QColor:
+                return QColor("#123456")
+
+        self.window.show_settings_page()
+        self.assertTrue(self.window.data.use_system_accent)
+        with patch("vcolor.settings_page.QColorDialog", Picker), patch(
+            "vcolor.dialogs.run_dialog",
+            return_value=QDialog.DialogCode.Accepted,
+        ):
+            self.window.settings_page.accent_button.click()
+        self.app.processEvents()
+
+        self.assertFalse(self.window.data.use_system_accent)
+        self.assertFalse(self.window.settings_page.system_accent_switch.isChecked())
+        self.assertEqual(self.window.data.accent_color, "#123456")
+        self.assertEqual(theme.ACCENT, "#123456")
+        loaded = PaletteStore(self.path).load()
+        self.assertFalse(loaded.use_system_accent)
+        self.assertEqual(loaded.accent_color, "#123456")
+
+    def test_settings_source_button_opens_github(self) -> None:
+        from unittest.mock import patch
+
+        from PySide6.QtCore import QUrl
+
+        opened: list[QUrl] = []
+        with patch(
+            "vcolor.main_window.QDesktopServices.openUrl",
+            side_effect=opened.append,
+        ):
+            self.window.show_settings_page()
+            self.window.settings_page.source_button.click()
+        self.app.processEvents()
+
+        self.assertEqual(opened, [QUrl("https://github.com/hingjasontech/vColor")])
 
     def test_color_context_menu_has_adwaita_labels(self) -> None:
         row = ColorRow("color-id", "Apple blue", "#0a84ff", "#0a84ff")

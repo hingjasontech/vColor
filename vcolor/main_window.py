@@ -33,10 +33,11 @@ from PySide6.QtWidgets import (
 )
 
 from . import theme
-from .color_utils import format_color, slugify
+from .color_utils import DEFAULT_ACCENT, format_color, slugify
 from .models import AppData, ColorEntry, PaletteStore, Project, StoreError, utc_now
-from .project_files import project_from_portable, read_project_file
+from .project_files import project_from_portable, read_project_file, unique_project_name
 from .settings_page import SettingsPage
+from .system_accent import system_accent_color
 from .widgets import (
     ColorItem,
     EmptyState,
@@ -49,6 +50,9 @@ from .widgets import (
 
 if TYPE_CHECKING:
     from .updater import ReleaseInfo, UpdateChecker
+
+
+SOURCE_URL = "https://github.com/hingjasontech/vColor"
 
 
 class MainWindow(QMainWindow):
@@ -65,6 +69,7 @@ class MainWindow(QMainWindow):
         self.version = version
         self.check_updates = check_updates
         self.data = AppData()
+        self.accent_color = DEFAULT_ACCENT
         self.current_format = "HEX"
         self._project_items: dict[str, ProjectItem] = {}
         self._loaded = False
@@ -100,10 +105,17 @@ class MainWindow(QMainWindow):
         self.settings_page.showHexHashChanged.connect(
             self._settings_hex_hash_changed
         )
+        self.settings_page.systemAccentChanged.connect(
+            self._settings_system_accent_changed
+        )
+        self.settings_page.accentColorChanged.connect(
+            self._settings_accent_color_changed
+        )
         self.settings_page.updateCheckChanged.connect(
             self._update_check_changed
         )
         self.settings_page.checkNowRequested.connect(self.check_for_updates)
+        self.settings_page.sourceRequested.connect(self.open_source_page)
 
         self.setAcceptDrops(True)
 
@@ -177,15 +189,6 @@ class MainWindow(QMainWindow):
         footer_layout.addWidget(self.settings_button)
 
         layout.addWidget(footer)
-        layout.addSpacing(6)
-
-        self.version_button = QPushButton(f"vColor {self.version}")
-        self.version_button.setObjectName("VersionButton")
-        self.version_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.version_button.setToolTip("Check for updates")
-        self.version_button.setAccessibleName("Check for updates")
-        self.version_button.clicked.connect(self.check_for_updates)
-        layout.addWidget(self.version_button, 0, Qt.AlignmentFlag.AlignHCenter)
         return sidebar
 
     def _build_main_content(self) -> QWidget:
@@ -314,6 +317,8 @@ class MainWindow(QMainWindow):
         self.settings_page.load(
             display_format=self.data.display_format,
             show_hex_hash=self.data.show_hex_hash,
+            use_system_accent=self.data.use_system_accent,
+            accent_color=self.accent_color,
             update_check=self.data.update_check,
             version=self.version,
         )
@@ -481,8 +486,6 @@ class MainWindow(QMainWindow):
             # A check is already running; let its completion report the result.
             return
         self._latest_release = None
-        self.version_button.setEnabled(False)
-        self.version_button.setText("Checking for updates…")
 
     def _on_update_available(self, release: ReleaseInfo) -> None:
         self._latest_release = release
@@ -496,8 +499,6 @@ class MainWindow(QMainWindow):
         manual = self._manual_update_check
         self._manual_update_check = False
         self.settings_page.set_checking(False)
-        self.version_button.setEnabled(True)
-        self.version_button.setText(f"vColor {self.version}")
         if not manual:
             return
         if not success:
@@ -527,9 +528,23 @@ class MainWindow(QMainWindow):
         self.settings_page.set_show_hex_hash(self.data.show_hex_hash)
         self.settings_page.set_update_check(self.data.update_check)
         self.settings_page.set_version(self.version)
+        self._apply_accent()
         self._populate_projects()
         self._render_project()
         self._position_floating_widgets()
+
+    def _apply_accent(self) -> None:
+        value = (
+            system_accent_color()
+            if self.data.use_system_accent
+            else self.data.accent_color
+        )
+        app = QApplication.instance()
+        if app is None:
+            self.accent_color = theme.set_accent(value)
+        else:
+            self.accent_color = theme.apply_accent(app, value)
+        self.settings_page.set_accent(self.data.use_system_accent, self.accent_color)
 
     def _apply_display_format(self, value: str) -> None:
         index = self.format_combo.findText(value)
@@ -556,6 +571,7 @@ class MainWindow(QMainWindow):
             )
             item.activated.connect(self.select_project)
             item.renameRequested.connect(self.rename_project)
+            item.duplicateRequested.connect(self.duplicate_project)
             item.deleteRequested.connect(self.delete_project)
             item.exportRequested.connect(self.export_project)
             item.importRequested.connect(self.import_colors)
@@ -670,6 +686,22 @@ class MainWindow(QMainWindow):
         if self.active_project is not None:
             self._render_project()
 
+    def _settings_system_accent_changed(self, enabled: bool) -> None:
+        if self.data.use_system_accent == enabled:
+            return
+        self.data.use_system_accent = enabled
+        self._persist(silent=True)
+        self._apply_accent()
+
+    def _settings_accent_color_changed(self, value: str) -> None:
+        self.data.use_system_accent = False
+        self.data.accent_color = value
+        self._persist(silent=True)
+        self._apply_accent()
+
+    def open_source_page(self) -> None:
+        QDesktopServices.openUrl(QUrl(SOURCE_URL))
+
     def _display_color(self, value: str) -> str:
         text = format_color(value, self.current_format)
         if self.current_format == "HEX" and not self.data.show_hex_hash:
@@ -723,6 +755,27 @@ class MainWindow(QMainWindow):
         self._populate_projects()
         self._render_project()
         self.toast.show_message("Project renamed")
+
+    def duplicate_project(self, project_id: str) -> None:
+        project = self.data.find_project(project_id)
+        if project is None:
+            return
+        duplicate = Project(
+            name=unique_project_name(self.data, project.name),
+            colors=[
+                ColorEntry(name=color.name, hex=color.hex)
+                for color in project.colors
+            ],
+        )
+        index = self.data.projects.index(project)
+        self.data.projects.insert(index + 1, duplicate)
+        self.data.active_project_id = duplicate.id
+        self._persist(silent=True)
+        self._populate_projects()
+        self._render_project()
+        self.toast.show_message(
+            f'Duplicated "{project.name}" as "{duplicate.name}"'
+        )
 
     def delete_project(self, project_id: str) -> None:
         from .dialogs import ConfirmDialog

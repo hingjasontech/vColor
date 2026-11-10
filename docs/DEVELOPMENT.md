@@ -75,8 +75,8 @@ uv run python -m unittest discover -s tests -v
 ```
 
 The suite covers color conversion, contrast, persistence, corrupt-file recovery,
-project file import/export, update version comparison, and a headless UI smoke
-test.
+project file import/export, system accent detection, update version comparison,
+and a headless UI smoke test.
 
 ## Build a desktop bundle
 
@@ -218,6 +218,8 @@ vcolor/
   app.py            application bootstrap, command-line flags, theme setup
   main_window.py    window, projects, rows, import/export, persistence wiring
   settings_page.py  libadwaita-style preferences page
+  system_accent.py  Windows/macOS/Linux accent-color detection with a fallback
+  theme.py          dark theme tokens and the runtime accent stylesheet
   project_files.py  project-file import helpers and copy naming
   widgets.py        custom-painted buttons, rows, toast, empty state
   dialogs.py        project/color/confirm dialogs

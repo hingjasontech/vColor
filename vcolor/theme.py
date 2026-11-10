@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from .color_utils import ColorError, DEFAULT_ACCENT, normalize_hex
+
 APP_BG = "#202020"
 SIDEBAR_BG = "#2B2B2B"
 SURFACE = "#353535"
@@ -13,13 +15,53 @@ BORDER_STRONG = "#4A4A4A"
 TEXT = "#F3F3F3"
 TEXT_MUTED = "#A6A6A6"
 TEXT_DIM = "#7C7C7C"
-ACCENT = "#3584E4"
-ACCENT_HOVER = "#4990E7"
-ACCENT_PRESSED = "#2A6AB8"
 DANGER = "#FF7B84"
 DANGER_BG = "#22FF7B84"
 SUCCESS = "#3DD68C"
 WARNING = "#F5A524"
+
+
+def _shade(value: str, factor: float) -> str:
+    """Lighten a hex color when ``factor`` is positive, darken it when negative."""
+    value = normalize_hex(value)
+    channels = [int(value[index : index + 2], 16) for index in (1, 3, 5)]
+    if factor >= 0:
+        channels = [round(channel + (255 - channel) * factor) for channel in channels]
+    else:
+        channels = [round(channel * (1.0 + factor)) for channel in channels]
+    return "#" + "".join(f"{max(0, min(255, channel)):02x}" for channel in channels)
+
+
+def set_accent(value: str) -> str:
+    """Set the runtime accent color and derive its hover/pressed variants."""
+    global ACCENT, ACCENT_HOVER, ACCENT_PRESSED
+    if value is None:
+        value = DEFAULT_ACCENT
+    try:
+        ACCENT = normalize_hex(value)
+    except (ColorError, AttributeError, TypeError):
+        ACCENT = DEFAULT_ACCENT
+    ACCENT_HOVER = _shade(ACCENT, 0.12)
+    ACCENT_PRESSED = _shade(ACCENT, -0.15)
+    return ACCENT
+
+
+set_accent(DEFAULT_ACCENT)
+
+
+def apply_accent(app, value: str) -> str:
+    """Apply an accent color to the application palette and stylesheet."""
+    accent = set_accent(value)
+    from PySide6.QtGui import QColor, QPalette
+
+    app.setStyleSheet(build_stylesheet(app.font().family()))
+    palette = app.palette()
+    palette.setColor(QPalette.ColorRole.Link, QColor(accent))
+    palette.setColor(QPalette.ColorRole.Highlight, QColor(accent))
+    app.setPalette(palette)
+    for widget in app.allWidgets():
+        widget.update()
+    return accent
 
 
 def build_stylesheet(font_family: str = "Inter Variable") -> str:
@@ -469,22 +511,6 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
         border: none;
         margin-left: 16px;
         margin-right: 16px;
-    }}
-
-    QPushButton#VersionButton {{
-        background: transparent;
-        border: none;
-        color: {TEXT_DIM};
-        font-size: 12px;
-        font-weight: 500;
-        min-height: 24px;
-        padding: 0;
-    }}
-    QPushButton#VersionButton:hover {{
-        color: {TEXT_MUTED};
-    }}
-    QPushButton#VersionButton:disabled {{
-        color: {TEXT_DIM};
     }}
 
     QMenu {{

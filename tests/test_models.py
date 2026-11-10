@@ -61,6 +61,31 @@ class ModelTests(unittest.TestCase):
         restored = AppData.from_dict({"projects": [], "show_hex_hash": "no"})
         self.assertTrue(restored.show_hex_hash)
 
+    def test_accent_defaults_to_following_the_system(self) -> None:
+        data = AppData()
+        self.assertTrue(data.use_system_accent)
+        self.assertEqual(data.accent_color, "#477eeb")
+        restored = AppData.from_dict({"projects": []})
+        self.assertTrue(restored.use_system_accent)
+        self.assertEqual(restored.accent_color, "#477eeb")
+
+    def test_accent_settings_round_trip(self) -> None:
+        data = AppData(use_system_accent=False, accent_color="#123456")
+        restored = AppData.from_dict(json.loads(json.dumps(data.to_dict())))
+        self.assertFalse(restored.use_system_accent)
+        self.assertEqual(restored.accent_color, "#123456")
+
+    def test_malformed_accent_settings_are_sanitized(self) -> None:
+        restored = AppData.from_dict(
+            {
+                "projects": [],
+                "use_system_accent": "yes",
+                "accent_color": "not-a-color",
+            }
+        )
+        self.assertTrue(restored.use_system_accent)
+        self.assertEqual(restored.accent_color, "#477eeb")
+
     def test_update_settings_round_trip(self) -> None:
         data = AppData(
             update_check=False,

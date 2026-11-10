@@ -517,6 +517,7 @@ class ColorItem(QWidget):
 class ProjectItem(QFrame):
     activated = Signal(str)
     renameRequested = Signal(str)
+    duplicateRequested = Signal(str)
     deleteRequested = Signal(str)
     exportRequested = Signal(str)
     importRequested = Signal(str)
@@ -564,22 +565,35 @@ class ProjectItem(QFrame):
         self.renameRequested.emit(self.project_id)
         super().mouseDoubleClickEvent(event)
 
-    def contextMenuEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+    def build_context_menu(self) -> QMenu:
         menu = QMenu(self)
         rename = menu.addAction("Rename project")
+        duplicate = menu.addAction("Duplicate project")
         export = menu.addAction("Export project...")
         import_action = menu.addAction("Import colors...")
         menu.addSeparator()
         delete = menu.addAction("Delete project")
-        chosen = menu.exec(event.globalPos())
-        if chosen == rename:
-            self.renameRequested.emit(self.project_id)
-        elif chosen == export:
-            self.exportRequested.emit(self.project_id)
-        elif chosen == import_action:
-            self.importRequested.emit(self.project_id)
-        elif chosen == delete:
-            self.deleteRequested.emit(self.project_id)
+        rename.triggered.connect(
+            lambda _checked=False: self.renameRequested.emit(self.project_id)
+        )
+        duplicate.triggered.connect(
+            lambda _checked=False: self.duplicateRequested.emit(self.project_id)
+        )
+        export.triggered.connect(
+            lambda _checked=False: self.exportRequested.emit(self.project_id)
+        )
+        import_action.triggered.connect(
+            lambda _checked=False: self.importRequested.emit(self.project_id)
+        )
+        delete.triggered.connect(
+            lambda _checked=False: self.deleteRequested.emit(self.project_id)
+        )
+        return menu
+
+    def contextMenuEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        menu = self.build_context_menu()
+        menu.exec(event.globalPos())
+        menu.deleteLater()
 
 
 class _ComboItemDelegate(QStyledItemDelegate):
