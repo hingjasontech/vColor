@@ -169,19 +169,25 @@ def draw_icon(
         arrow.lineTo(cx - s * 0.28, cy)
         arrow.lineTo(cx - s * 0.08, cy + s * 0.20)
         painter.drawPath(arrow)
-    elif kind == "inbox":
-        left = cx - s * 0.36
-        right = cx + s * 0.36
-        top = cy - s * 0.30
-        bottom = cy + s * 0.32
-        painter.drawLine(QPointF(left, top), QPointF(right, top))
-        painter.drawLine(QPointF(left, top), QPointF(left, bottom))
-        painter.drawLine(QPointF(right, top), QPointF(right, bottom))
-        painter.drawLine(QPointF(left, bottom), QPointF(cx - s * 0.20, bottom))
-        painter.drawLine(QPointF(right, bottom), QPointF(cx + s * 0.20, bottom))
-        painter.drawLine(QPointF(cx - s * 0.20, bottom), QPointF(cx - s * 0.13, bottom - s * 0.16))
-        painter.drawLine(QPointF(cx + s * 0.20, bottom), QPointF(cx + s * 0.13, bottom - s * 0.16))
-        painter.drawLine(QPointF(cx - s * 0.13, bottom - s * 0.16), QPointF(cx + s * 0.13, bottom - s * 0.16))
+    elif kind == "import":
+        left = cx - s * 0.34
+        right = cx + s * 0.34
+        bottom = cy + s * 0.30
+        path = QPainterPath()
+        path.moveTo(left, cy - s * 0.02)
+        path.lineTo(left, bottom)
+        path.lineTo(right, bottom)
+        path.lineTo(right, cy - s * 0.02)
+        painter.drawPath(path)
+        painter.drawLine(
+            QPointF(cx, cy - s * 0.38),
+            QPointF(cx, cy + s * 0.10),
+        )
+        arrow = QPainterPath()
+        arrow.moveTo(cx - s * 0.16, cy - s * 0.06)
+        arrow.lineTo(cx, cy + s * 0.12)
+        arrow.lineTo(cx + s * 0.16, cy - s * 0.06)
+        painter.drawPath(arrow)
     elif kind == "settings":
         painter.drawEllipse(
             QRectF(cx - s * 0.27, cy - s * 0.27, s * 0.54, s * 0.54)

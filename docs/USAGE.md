@@ -11,11 +11,12 @@
 - WCAG contrast checks against white and black.
 - Format selector updates the values shown and copied in the list, and remembers
   your choice between sessions.
+- Optional HEX display and copy without the leading `#`.
 - Automatic saving with atomic JSON writes — no Save button needed.
-- Import colors from JSON, CSS, or GIMP `.gpl` files.
+- Import a project from a portable `.json` file with **Import project**.
+- Import colors from JSON, CSS, or GIMP `.gpl` files into an existing project.
 - Export projects as portable JSON, CSS custom properties, or GIMP `.gpl` files.
-- Watched project inbox: projects from an AI assistant appear automatically.
-- Drag a `.json` project file onto the window to add it as a project.
+- Drag one or more `.json` project files onto the window to add them as projects.
 - No built-in theme catalog: ask your AI assistant for a theme, or supply the
   official colors yourself.
 - Starts with an empty workspace so you can create your own projects.
@@ -24,7 +25,7 @@
 - Native file dialogs and native color picker on each platform.
 - Automatic update checks against GitHub Releases, with a download banner when
   a newer version exists.
-- A Settings page for color format, update checks, and the project inbox.
+- A Settings page for color format, HEX prefix, and update checks.
 
 ## Installing
 
@@ -57,8 +58,8 @@ page. To opt out, set `"update_check": false` in `palettes.json`.
 ## Settings
 
 Click **Settings** at the bottom of the sidebar to change the color format,
-toggle automatic update checks, check for updates now, or open the project
-inbox. Click the back arrow to return to your projects.
+choose whether HEX values show a leading `#`, toggle automatic update checks, or
+check for updates now. Click the back arrow to return to your projects.
 
 ## Keyboard shortcuts
 
@@ -66,6 +67,7 @@ inbox. Click the back arrow to return to your projects.
 | --- | --- |
 | New color | `Ctrl/Cmd+N` |
 | New project | `Ctrl/Cmd+Shift+N` |
+| Import project file | `Ctrl/Cmd+O` |
 | Export active project | `Ctrl/Cmd+E` |
 | Import colors into active project | `Ctrl/Cmd+I` |
 
@@ -77,17 +79,13 @@ also right-click a color for **Edit**, **Copy**, and **Delete**.
 ## Projects from an AI assistant
 
 Ask your AI assistant for a theme, for example “generate a Catppuccin Mocha
-theme using vColor.” The assistant writes a portable `.json` project file into
-vColor's project inbox, and the project appears in the app automatically — even
-if vColor is already open. If it was closed, the project is added the next time
-you launch it.
+theme using vColor.” The assistant should use the instructions in this
+repository's [AGENTS.md](../AGENTS.md) and write a portable `.json` project
+file.
 
-You can also drag one or more `.json` project files onto the vColor window, or
-use **Export → JSON** to save a project in the same portable format.
-
-Click **Project inbox** at the bottom of the sidebar to open the folder where
-projects arrive. Duplicate names are added as numbered copies, and a toast
-offers **Undo** after an import.
+Then import it with **Import project** at the bottom of the sidebar, or drag the
+file onto the vColor window. The project appears immediately. Duplicate names
+are added as numbered copies, and a toast offers **Undo** after an import.
 
 See [Portable projects](PROJECTS.md) for the file format and import rules.
 
@@ -100,8 +98,8 @@ See [Portable projects](PROJECTS.md) for the file format and import rules.
 | Windows | `%APPDATA%\vColor\` |
 
 `palettes.json` stores your projects (the filename is kept for compatibility
-with earlier versions). `inbox/` is the watched project inbox, with
-`imported/` and `failed/` subfolders for archived files.
+with earlier versions). Project files themselves stay wherever you saved them;
+vColor only reads them when you import or drag them in.
 
 Saves are atomic: data is written to a temporary file, flushed to disk, and
 then moved into place. If the JSON file is corrupt, vColor moves it aside as

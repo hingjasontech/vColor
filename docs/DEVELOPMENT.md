@@ -75,8 +75,8 @@ uv run python -m unittest discover -s tests -v
 ```
 
 The suite covers color conversion, contrast, persistence, corrupt-file recovery,
-project import/export, the watched project inbox, update version comparison, and
-a headless UI smoke test.
+project file import/export, update version comparison, and a headless UI smoke
+test.
 
 ## Build a desktop bundle
 
@@ -216,9 +216,9 @@ Rebuild the desktop bundle afterward so the new icon is embedded in the EXE.
 ```text
 vcolor/
   app.py            application bootstrap, command-line flags, theme setup
-  main_window.py    window, projects, rows, inbox polling, persistence wiring
+  main_window.py    window, projects, rows, import/export, persistence wiring
   settings_page.py  libadwaita-style preferences page
-  inbox.py          watched project inbox, validation, copy naming, archiving
+  project_files.py  project-file import helpers and copy naming
   widgets.py        custom-painted buttons, rows, toast, empty state
   dialogs.py        project/color/confirm dialogs
   color_utils.py    conversions, contrast, formatting

@@ -1,9 +1,9 @@
 """Portable project documents.
 
-A ``vcolor.palette`` JSON file is the interchange format used by the project
-inbox and by project files exported from the app. It deliberately keeps only
-data that is meaningful outside vColor: a name, colors, and optional source
-metadata. Internal ids and timestamps stay in the application database.
+A ``vcolor.palette`` JSON file is the interchange format for project files
+imported into and exported from the app. It deliberately keeps only data that
+is meaningful outside vColor: a name, colors, and optional source metadata.
+Internal ids and timestamps stay in the application database.
 """
 
 from __future__ import annotations

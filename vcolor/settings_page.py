@@ -145,13 +145,13 @@ class SettingsGroup(QWidget):
 
 
 class SettingsPage(QWidget):
-    """Preferences for appearance, updates, projects, and about."""
+    """Preferences for appearance, updates, and about."""
 
     backRequested = Signal()
     formatChanged = Signal(str)
+    showHexHashChanged = Signal(bool)
     updateCheckChanged = Signal(bool)
     checkNowRequested = Signal()
-    openInboxRequested = Signal()
 
     def __init__(self, version: str = "0.0.0", parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -183,7 +183,6 @@ class SettingsPage(QWidget):
 
         column.addWidget(self._build_appearance_group())
         column.addWidget(self._build_updates_group())
-        column.addWidget(self._build_projects_group())
         column.addWidget(self._build_about_group())
         column.addStretch(1)
 
@@ -239,6 +238,17 @@ class SettingsPage(QWidget):
                 self.format_combo,
             )
         )
+
+        self.hex_hash_switch = Switch()
+        self.hex_hash_switch.setAccessibleName("Show a number sign in HEX values")
+        self.hex_hash_switch.toggled.connect(self.showHexHashChanged.emit)
+        group.add_row(
+            SettingsRow(
+                "Show # in HEX values",
+                "Include the leading # when displaying and copying HEX colors.",
+                self.hex_hash_switch,
+            )
+        )
         return group
 
     def _build_updates_group(self) -> SettingsGroup:
@@ -269,23 +279,6 @@ class SettingsPage(QWidget):
         )
         return group
 
-    def _build_projects_group(self) -> SettingsGroup:
-        group = SettingsGroup("Projects")
-
-        self.open_inbox_button = QPushButton("Open")
-        self.open_inbox_button.setObjectName("SecondaryButton")
-        self.open_inbox_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.open_inbox_button.setAccessibleName("Open project inbox")
-        self.open_inbox_button.clicked.connect(self.openInboxRequested.emit)
-        group.add_row(
-            SettingsRow(
-                "Project inbox",
-                "Open the folder where new projects from AI assistants arrive.",
-                self.open_inbox_button,
-            )
-        )
-        return group
-
     def _build_about_group(self) -> SettingsGroup:
         group = SettingsGroup("About")
         self.version_label = QLabel(f"Version {self._version}")
@@ -303,6 +296,10 @@ class SettingsPage(QWidget):
         with QSignalBlocker(self.format_combo):
             self.format_combo.setCurrentText(value)
 
+    def set_show_hex_hash(self, enabled: bool) -> None:
+        with QSignalBlocker(self.hex_hash_switch):
+            self.hex_hash_switch.setChecked(enabled)
+
     def set_update_check(self, enabled: bool) -> None:
         with QSignalBlocker(self.update_switch):
             self.update_switch.setChecked(enabled)
@@ -319,10 +316,12 @@ class SettingsPage(QWidget):
         self,
         *,
         display_format: str,
+        show_hex_hash: bool,
         update_check: bool,
         version: str | None = None,
     ) -> None:
         self.set_format(display_format)
+        self.set_show_hex_hash(show_hex_hash)
         self.set_update_check(update_check)
         if version is not None:
             self.set_version(version)

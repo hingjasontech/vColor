@@ -13,7 +13,6 @@ from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication  # noqa: E402
 
 from vcolor import theme  # noqa: E402
-from vcolor.inbox import ProjectInbox  # noqa: E402
 from vcolor.main_window import MainWindow  # noqa: E402
 from vcolor.models import AppData, ColorEntry, PaletteStore, Project  # noqa: E402
 from vcolor.palette_format import PortablePalette, save_palette  # noqa: E402
@@ -52,8 +51,7 @@ class WindowSmokeTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.path = Path(self.temp.name) / "palettes.json"
         self.store = PaletteStore(self.path)
-        self.inbox = ProjectInbox(self.path.parent, partial_write_grace=0.0)
-        self.window = MainWindow(self.store, inbox=self.inbox)
+        self.window = MainWindow(self.store)
         self.window._loaded = True
         self.window.set_data(sample_data())
         self.window.resize(1280, 800)
@@ -276,23 +274,31 @@ class WindowSmokeTests(unittest.TestCase):
         self.app.processEvents()
         self.assertTrue(self.window.update_banner.isVisible())
 
-    def test_project_inbox_button_is_available(self) -> None:
-        self.assertEqual(self.window.inbox_button.text(), "Project inbox")
-        self.assertTrue(self.window.inbox_button.isVisible())
-        self.assertIn("AI", self.window.inbox_button.toolTip())
+    def test_import_button_sits_above_settings(self) -> None:
+        self.assertEqual(self.window.import_button.text(), "Import project")
+        self.assertTrue(self.window.import_button.isVisible())
+        self.assertIn("project", self.window.import_button.toolTip().lower())
+        footer = self.window.import_button.parentWidget()
+        layout = footer.layout()
+        self.assertLess(
+            layout.indexOf(self.window.import_button),
+            layout.indexOf(self.window.settings_button),
+        )
 
-    def test_inbox_import_adds_project_and_supports_undo(self) -> None:
+    def test_import_project_files_adds_project_and_supports_undo(self) -> None:
         previous_active_id = self.window.data.active_project_id
-        save_palette(self.inbox_palette(), self.inbox.root / "imported-theme.json")
+        source = save_palette(
+            self.project_palette(), self.path.parent / "imported-theme.json"
+        )
 
-        self.window._process_inbox()
+        self.window.import_project_files([source])
         self.app.processEvents()
 
         self.assertEqual(len(self.window.data.projects), 4)
         imported = self.window.active_project
         self.assertEqual(imported.name, "Imported Theme")
         self.assertEqual(len(self.window.body.findChildren(ColorRow)), 2)
-        self.assertTrue((self.inbox.imported_dir / "imported-theme.json").is_file())
+        self.assertTrue(source.exists())
         self.assertIsNotNone(self.window.toast._action)
 
         self.window.toast._action()
@@ -301,78 +307,47 @@ class WindowSmokeTests(unittest.TestCase):
         self.assertEqual(len(self.window.data.projects), 3)
         self.assertEqual(self.window.data.active_project_id, previous_active_id)
 
-    def test_running_inbox_timer_imports_a_new_file(self) -> None:
-        self.window._inbox_timer.setInterval(20)
-        self.window._inbox_timer.start()
-        save_palette(
-            self.inbox_palette("Live Theme"), self.inbox.root / "live-theme.json"
+    def test_import_project_duplicate_name_gets_numbered_copy(self) -> None:
+        source = save_palette(
+            self.project_palette("Website"), self.path.parent / "website.json"
         )
 
-        for _ in range(20):
-            if self.window.active_project is not None and (
-                self.window.active_project.name == "Live Theme"
-            ):
-                break
-            QTest.qWait(50)
-
-        self.assertEqual(self.window.active_project.name, "Live Theme")
-        self.assertTrue((self.inbox.imported_dir / "live-theme.json").is_file())
-
-    def test_inbox_duplicate_name_gets_numbered_copy(self) -> None:
-        save_palette(
-            self.inbox_palette("Website"), self.inbox.root / "website.json"
-        )
-
-        self.window._process_inbox()
+        self.window.import_project_files([source])
         self.app.processEvents()
 
         self.assertEqual(self.window.active_project.name, "Website (2)")
 
-    def test_inbox_invalid_file_is_archived_and_reported(self) -> None:
-        self.inbox.ensure()
-        (self.inbox.root / "broken.json").write_text(
-            '{"name": "Broken"}\n', encoding="utf-8"
-        )
+    def test_import_project_reports_invalid_file(self) -> None:
+        source = self.path.parent / "broken.json"
+        source.write_text('{"name": "Broken"}\n', encoding="utf-8")
 
-        self.window._process_inbox()
+        self.window.import_project_files([source])
         self.app.processEvents()
 
-        self.assertTrue((self.inbox.failed_dir / "broken.json").is_file())
+        self.assertEqual(len(self.window.data.projects), 3)
         self.assertTrue(self.window.toast.isVisible())
         self.assertIn("Could not import", self.window.toast._label.text())
 
-    def test_bootstrap_imports_existing_inbox_file(self) -> None:
-        self.window._loaded = False
-        self.window.close()
-        self.window.deleteLater()
+    def test_import_project_dialog_reads_selected_files(self) -> None:
+        from unittest.mock import patch
+
+        source = save_palette(
+            self.project_palette("Picked Theme"), self.path.parent / "picked.json"
+        )
+        with patch(
+            "vcolor.main_window.QFileDialog.getOpenFileNames",
+            return_value=([str(source)], "vColor project (*.json)"),
+        ):
+            self.window.import_project()
         self.app.processEvents()
 
-        save_palette(
-            self.inbox_palette("Startup Theme"), self.inbox.root / "startup.json"
-        )
-        self.window = MainWindow(
-            self.store,
-            inbox=ProjectInbox(self.path.parent, partial_write_grace=0.0),
-        )
-        self.window.show()
-        self.window.bootstrap()
-        self.app.processEvents()
-
-        self.assertEqual(
-            [project.name for project in self.window.data.projects],
-            ["Startup Theme"],
-        )
-        self.assertEqual(
-            self.window.data.active_project_id, self.window.data.projects[0].id
-        )
-        self.assertTrue((self.window.inbox.imported_dir / "startup.json").is_file())
-        self.assertTrue(self.window._inbox_timer.isActive())
+        self.assertEqual(self.window.active_project.name, "Picked Theme")
 
     def test_dropped_json_file_creates_a_project(self) -> None:
         from PySide6.QtCore import QMimeData, QUrl
 
         source = self.path.parent / "dropped.json"
-        save_palette(self.inbox_palette("Dropped Theme"), source)
+        save_palette(self.project_palette("Dropped Theme"), source)
         mime = QMimeData()
         mime.setUrls([QUrl.fromLocalFile(str(source))])
 
@@ -385,7 +360,7 @@ class WindowSmokeTests(unittest.TestCase):
         self.assertTrue(source.exists())
 
     @staticmethod
-    def inbox_palette(name: str = "Imported Theme") -> PortablePalette:
+    def project_palette(name: str = "Imported Theme") -> PortablePalette:
         return PortablePalette(
             id="imported-theme",
             name=name,
@@ -423,6 +398,44 @@ class WindowSmokeTests(unittest.TestCase):
         rows = self.window.body.findChildren(ColorRow)
         self.assertEqual(rows[0].value_label.text(), "rgb(10, 132, 255)")
         self.assertEqual(PaletteStore(self.path).load().display_format, "RGB")
+
+    def test_hex_values_can_be_shown_without_hash(self) -> None:
+        self.window.show_settings_page()
+        self.window.settings_page.hex_hash_switch.setChecked(False)
+        self.app.processEvents()
+
+        rows = self.window.body.findChildren(ColorRow)
+        self.assertEqual(rows[0].value_label.text(), "0a84ff")
+
+        color_id = self.window.active_project.colors[0].id
+        self.window.copy_color(color_id)
+        self.assertEqual(QApplication.clipboard().text(), "0a84ff")
+        self.assertFalse(PaletteStore(self.path).load().show_hex_hash)
+
+        self.window.format_combo.setCurrentText("RGB")
+        self.app.processEvents()
+        rows = self.window.body.findChildren(ColorRow)
+        self.assertEqual(rows[0].value_label.text(), "rgb(10, 132, 255)")
+
+    def test_hex_hash_setting_is_restored(self) -> None:
+        self.window.show_settings_page()
+        self.window.settings_page.hex_hash_switch.setChecked(False)
+        self.app.processEvents()
+        self.window.close()
+
+        restored = MainWindow(PaletteStore(self.path))
+        restored._loaded = True
+        restored.set_data(restored.store.load())
+        self.assertFalse(restored.data.show_hex_hash)
+        self.assertFalse(restored.settings_page.hex_hash_switch.isChecked())
+        self.assertEqual(
+            restored.body.findChildren(ColorRow)[0].value_label.text(), "0a84ff"
+        )
+        restored.deleteLater()
+        self.app.processEvents()
+
+    def test_sidebar_project_spacing_is_compact(self) -> None:
+        self.assertEqual(self.window.project_list_layout.spacing(), 6)
 
     def test_settings_update_toggle_persists(self) -> None:
         self.window.show_settings_page()

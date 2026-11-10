@@ -34,8 +34,8 @@ from PySide6.QtWidgets import (
 
 from . import theme
 from .color_utils import format_color, slugify
-from .inbox import ProjectInbox, project_from_portable, read_project_file
 from .models import AppData, ColorEntry, PaletteStore, Project, StoreError, utc_now
+from .project_files import project_from_portable, read_project_file
 from .settings_page import SettingsPage
 from .widgets import (
     ColorItem,
@@ -58,14 +58,12 @@ class MainWindow(QMainWindow):
         version: str = "0.0.0",
         *,
         check_updates: bool = True,
-        inbox: ProjectInbox | None = None,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.store = store
         self.version = version
         self.check_updates = check_updates
-        self.inbox = inbox or ProjectInbox(store.path.parent)
         self.data = AppData()
         self.current_format = "HEX"
         self._project_items: dict[str, ProjectItem] = {}
@@ -99,15 +97,14 @@ class MainWindow(QMainWindow):
 
         self.settings_page.backRequested.connect(self.show_projects_page)
         self.settings_page.formatChanged.connect(self._settings_format_changed)
+        self.settings_page.showHexHashChanged.connect(
+            self._settings_hex_hash_changed
+        )
         self.settings_page.updateCheckChanged.connect(
             self._update_check_changed
         )
         self.settings_page.checkNowRequested.connect(self.check_for_updates)
-        self.settings_page.openInboxRequested.connect(self.open_project_inbox)
 
-        self._inbox_timer = QTimer(self)
-        self._inbox_timer.setInterval(1500)
-        self._inbox_timer.timeout.connect(self._process_inbox)
         self.setAcceptDrops(True)
 
         self._install_shortcuts()
@@ -158,7 +155,7 @@ class MainWindow(QMainWindow):
         self.project_list = QWidget()
         self.project_list_layout = QVBoxLayout(self.project_list)
         self.project_list_layout.setContentsMargins(0, 0, 0, 0)
-        self.project_list_layout.setSpacing(18)
+        self.project_list_layout.setSpacing(6)
         self.project_list_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.project_scroll.setWidget(self.project_list)
         layout.addWidget(self.project_scroll, 1)
@@ -169,12 +166,10 @@ class MainWindow(QMainWindow):
         footer_layout.setContentsMargins(0, 0, 0, 0)
         footer_layout.setSpacing(2)
 
-        self.inbox_button = SidebarAction("inbox", "Project inbox")
-        self.inbox_button.setToolTip(
-            "Open the folder where projects from AI assistants arrive"
-        )
-        self.inbox_button.clicked.connect(self.open_project_inbox)
-        footer_layout.addWidget(self.inbox_button)
+        self.import_button = SidebarAction("import", "Import project")
+        self.import_button.setToolTip("Import a vColor project file (Ctrl+O)")
+        self.import_button.clicked.connect(self.import_project)
+        footer_layout.addWidget(self.import_button)
 
         self.settings_button = SidebarAction("settings", "Settings")
         self.settings_button.setToolTip("Open settings")
@@ -294,6 +289,7 @@ class MainWindow(QMainWindow):
         for sequence, slot in (
             (QKeySequence(QKeySequence.StandardKey.New), self.add_color),
             (QKeySequence("Ctrl+Shift+N"), self.new_project),
+            (QKeySequence(QKeySequence.StandardKey.Open), self.import_project),
             (QKeySequence("Ctrl+E"), self.export_active_project),
             (QKeySequence("Ctrl+I"), self.import_active_project),
         ):
@@ -306,8 +302,6 @@ class MainWindow(QMainWindow):
             return
         self._loaded = True
         self.set_data(self.store.load())
-        self._process_inbox()
-        self._inbox_timer.start()
         self._schedule_update_check()
 
     # ---------------------------------------------------------------- pages
@@ -319,6 +313,7 @@ class MainWindow(QMainWindow):
     def show_settings_page(self) -> None:
         self.settings_page.load(
             display_format=self.data.display_format,
+            show_hex_hash=self.data.show_hex_hash,
             update_check=self.data.update_check,
             version=self.version,
         )
@@ -326,39 +321,17 @@ class MainWindow(QMainWindow):
         self.settings_button.set_selected(True)
         self._position_floating_widgets()
 
-    # ---------------------------------------------------------------- inbox
-    def open_project_inbox(self) -> None:
-        self._open_folder(self.inbox.root, "Could not open the project inbox")
-
-    def _open_folder(self, path: Path, error: str) -> None:
-        self.inbox.ensure()
-        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
-            self.toast.show_message(error, kind="error", duration=4000)
-
-    def _open_failed_inbox(self) -> None:
-        self._open_folder(self.inbox.failed_dir, "Could not open the failed folder")
-
-    def _process_inbox(self) -> None:
-        if not self._loaded or QApplication.activeModalWidget() is not None:
-            return
-
-        previous_active_id = self.data.active_project_id
-        result = self.inbox.scan(self.data)
-        if result.imported:
-            self._commit_imports(
-                [item.project for item in result.imported],
-                previous_active_id,
-                failures=len(result.failed),
-            )
-        elif result.failed:
-            count = len(result.failed)
-            self.toast.show_message(
-                f"Could not import {count} project file{'s' if count != 1 else ''}",
-                kind="error",
-                action_label="Open folder",
-                action=self._open_failed_inbox,
-                duration=6000,
-            )
+    # --------------------------------------------------------- project import
+    def import_project(self) -> None:
+        self.show_projects_page()
+        paths, _ = QFileDialog.getOpenFileNames(
+            self,
+            "Import project",
+            "",
+            "vColor project (*.json);;All files (*)",
+        )
+        if paths:
+            self.import_project_files([Path(path) for path in paths])
 
     def _commit_imports(
         self,
@@ -551,6 +524,7 @@ class MainWindow(QMainWindow):
         self.data = data
         self.data.ensure_active_project()
         self._apply_display_format(self.data.display_format)
+        self.settings_page.set_show_hex_hash(self.data.show_hex_hash)
         self.settings_page.set_update_check(self.data.update_check)
         self.settings_page.set_version(self.version)
         self._populate_projects()
@@ -627,7 +601,7 @@ class MainWindow(QMainWindow):
         if not self.data.projects:
             state = EmptyState(
                 "No projects yet",
-                "Create your first project, or ask your AI assistant to add one.",
+                "Create your first project, or import a vColor project file.",
                 "Create project",
             )
             state.actionTriggered.connect(self.new_project)
@@ -657,7 +631,7 @@ class MainWindow(QMainWindow):
                 item = ColorItem(
                     color.id,
                     color.name,
-                    format_color(color.hex, self.current_format),
+                    self._display_color(color.hex),
                     color.hex,
                 )
                 item.copyRequested.connect(self.copy_color)
@@ -687,6 +661,20 @@ class MainWindow(QMainWindow):
         self._persist(silent=True)
         if self.active_project is not None:
             self._render_project()
+
+    def _settings_hex_hash_changed(self, enabled: bool) -> None:
+        if self.data.show_hex_hash == enabled:
+            return
+        self.data.show_hex_hash = enabled
+        self._persist(silent=True)
+        if self.active_project is not None:
+            self._render_project()
+
+    def _display_color(self, value: str) -> str:
+        text = format_color(value, self.current_format)
+        if self.current_format == "HEX" and not self.data.show_hex_hash:
+            return text.lstrip("#")
+        return text
 
     def _update_check_changed(self, enabled: bool) -> None:
         if self.data.update_check == enabled:
@@ -864,7 +852,7 @@ class MainWindow(QMainWindow):
         color = next((item for item in project.colors if item.id == color_id), None)
         if color is None:
             return
-        value = format_color(color.hex, self.current_format)
+        value = self._display_color(color.hex)
         QApplication.clipboard().setText(value)
         self.toast.show_message(f"Copied {value}")
 
@@ -984,7 +972,6 @@ class MainWindow(QMainWindow):
         self._update_responsive_layout()
 
     def closeEvent(self, event: QCloseEvent) -> None:
-        self._inbox_timer.stop()
         if self._loaded:
             self._persist(silent=True)
         super().closeEvent(event)

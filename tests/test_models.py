@@ -48,6 +48,19 @@ class ModelTests(unittest.TestCase):
         restored = AppData.from_dict({"display_format": "CMYK", "projects": []})
         self.assertEqual(restored.display_format, "HEX")
 
+    def test_show_hex_hash_defaults_to_true(self) -> None:
+        self.assertTrue(AppData().show_hex_hash)
+        self.assertTrue(AppData.from_dict({"projects": []}).show_hex_hash)
+
+    def test_show_hex_hash_round_trip(self) -> None:
+        data = AppData(show_hex_hash=False)
+        restored = AppData.from_dict(json.loads(json.dumps(data.to_dict())))
+        self.assertFalse(restored.show_hex_hash)
+
+    def test_malformed_show_hex_hash_is_sanitized(self) -> None:
+        restored = AppData.from_dict({"projects": [], "show_hex_hash": "no"})
+        self.assertTrue(restored.show_hex_hash)
+
     def test_update_settings_round_trip(self) -> None:
         data = AppData(
             update_check=False,
