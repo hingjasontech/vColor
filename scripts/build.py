@@ -19,7 +19,7 @@ def main() -> int:
 
     if not args.skip_tests:
         subprocess.run(
-            [sys.executable, "-m", "unittest", "discover", "-s", "tests", "-q"],
+            [sys.executable, "scripts/run_tests.py"],
             cwd=ROOT,
             check=True,
             env={**os.environ, "QT_QPA_PLATFORM": "offscreen"},

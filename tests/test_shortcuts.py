@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -37,9 +38,11 @@ class ShortcutHelperTests(unittest.TestCase):
         self.assertEqual(normalize_shortcut("Ctrl+N, Ctrl+C"), "")
 
     def test_keycaps_split_modifiers(self) -> None:
-        self.assertEqual(
-            shortcut_keycaps("Ctrl+Shift+N"), ["Ctrl", "Shift", "N"]
-        )
+        if sys.platform == "darwin":
+            expected = ["⌘", "⇧", "N"]
+        else:
+            expected = ["Ctrl", "Shift", "N"]
+        self.assertEqual(shortcut_keycaps("Ctrl+Shift+N"), expected)
         self.assertEqual(shortcut_keycaps(""), [])
 
     def test_sanitize_drops_unknown_and_conflicting_overrides(self) -> None:
