@@ -84,8 +84,8 @@ Under **About**, **Open GitHub** opens
 
 Double-click a project to rename it. Right-click a project to duplicate it,
 export it, or import colors into it.
-Click a color tile to copy its value in the current display format; use the
-pencil button on the tile to edit it, or the trash button to delete it. You can
+Click a color row to copy its value in the current display format; use the
+copy, pencil, or trash buttons on the row to copy, edit, or delete it. You can
 also right-click a color for **Edit**, **Copy**, and **Delete**.
 
 ## Projects from an AI assistant

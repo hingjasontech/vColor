@@ -39,7 +39,9 @@ from .project_files import project_from_portable, read_project_file, unique_proj
 from .settings_page import SettingsPage
 from .system_accent import system_accent_color
 from .widgets import (
-    ColorItem,
+    ColorListCard,
+    ColorRow,
+    ElidedLabel,
     EmptyState,
     FormatComboBox,
     ProjectItem,
@@ -196,27 +198,14 @@ class MainWindow(QMainWindow):
         main.setObjectName("MainContent")
 
         outer = QVBoxLayout(main)
-        outer.setContentsMargins(48, 24, 48, 28)
+        outer.setContentsMargins(0, 0, 0, 0)
         outer.setSpacing(0)
 
-        self.center_column = QWidget()
-        self.center_column.setSizePolicy(
-            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
-        )
-        center = QVBoxLayout(self.center_column)
-        center.setContentsMargins(0, 0, 0, 0)
-        center.setSpacing(20)
-
-        self.update_banner = UpdateBanner(self.center_column)
-        self.update_banner.downloadRequested.connect(self._open_update_page)
-        self.update_banner.dismissRequested.connect(self._dismiss_update)
-        self.update_banner.hide()
-        center.addWidget(self.update_banner)
-
         header = QWidget()
-        header.setFixedHeight(44)
+        header.setObjectName("PageHeader")
+        header.setFixedHeight(56)
         header_layout = QGridLayout(header)
-        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setContentsMargins(48, 0, 48, 0)
         header_layout.setHorizontalSpacing(0)
         header_layout.setVerticalSpacing(0)
 
@@ -232,10 +221,10 @@ class MainWindow(QMainWindow):
             Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter,
         )
 
-        title = QLabel("Colors")
-        title.setObjectName("PageTitle")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        header_layout.addWidget(title, 0, 1, Qt.AlignmentFlag.AlignCenter)
+        self.page_title = ElidedLabel("Colors")
+        self.page_title.setObjectName("PageTitle")
+        self.page_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        header_layout.addWidget(self.page_title, 0, 1)
 
         self.add_button = QPushButton("Add color")
         self.add_button.setObjectName("PrimaryButton")
@@ -260,10 +249,22 @@ class MainWindow(QMainWindow):
             Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter,
         )
 
-        header_layout.setColumnStretch(0, 1)
-        header_layout.setColumnStretch(1, 0)
-        header_layout.setColumnStretch(2, 1)
-        center.addWidget(header)
+        header_layout.setColumnStretch(0, 0)
+        header_layout.setColumnStretch(1, 1)
+        header_layout.setColumnStretch(2, 0)
+        outer.addWidget(header)
+
+        self.banner_holder = QWidget(main)
+        banner_layout = QVBoxLayout(self.banner_holder)
+        banner_layout.setContentsMargins(48, 16, 48, 0)
+        banner_layout.setSpacing(0)
+
+        self.update_banner = UpdateBanner(self.banner_holder)
+        self.update_banner.downloadRequested.connect(self._open_update_page)
+        self.update_banner.dismissRequested.connect(self._dismiss_update)
+        banner_layout.addWidget(self.update_banner)
+        self.banner_holder.hide()
+        outer.addWidget(self.banner_holder)
 
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
@@ -273,19 +274,23 @@ class MainWindow(QMainWindow):
         self.scroll.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
 
         self.body = QWidget()
-        self.body_layout = QVBoxLayout(self.body)
-        self.body_layout.setContentsMargins(0, 0, 0, 0)
-        self.body_layout.setSpacing(20)
-        self.scroll.setWidget(self.body)
-        center.addWidget(self.scroll, 1)
+        body_outer = QHBoxLayout(self.body)
+        body_outer.setContentsMargins(48, 28, 48, 48)
+        body_outer.setSpacing(0)
 
-        row = QHBoxLayout()
-        row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(0)
-        row.addStretch(1)
-        row.addWidget(self.center_column, 0)
-        row.addStretch(1)
-        outer.addLayout(row, 1)
+        self.content_column = QWidget()
+        self.content_column.setSizePolicy(
+            QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Expanding
+        )
+        self.body_layout = QVBoxLayout(self.content_column)
+        self.body_layout.setContentsMargins(0, 0, 0, 0)
+        self.body_layout.setSpacing(0)
+
+        body_outer.addStretch(1)
+        body_outer.addWidget(self.content_column, 1)
+        body_outer.addStretch(1)
+        self.scroll.setWidget(self.body)
+        outer.addWidget(self.scroll, 1)
         return main
 
     def _install_shortcuts(self) -> None:
@@ -493,6 +498,7 @@ class MainWindow(QMainWindow):
             return
         self.update_banner.set_version(release.version)
         self.update_banner.setToolTip(release.name)
+        self.banner_holder.show()
         self.update_banner.show()
 
     def _on_update_check_finished(self, success: bool) -> None:
@@ -520,6 +526,7 @@ class MainWindow(QMainWindow):
             self.data.skipped_version = self._latest_release.version
             self._persist(silent=True)
         self.update_banner.hide()
+        self.banner_holder.hide()
 
     def set_data(self, data: AppData) -> None:
         self.data = data
@@ -600,6 +607,7 @@ class MainWindow(QMainWindow):
     def _render_project(self) -> None:
         project = self.active_project
         has_project = project is not None
+        self.page_title.setText(project.name if project is not None else "Colors")
         self.format_combo.setEnabled(has_project)
         self.add_button.setVisible(has_project)
 
@@ -636,24 +644,29 @@ class MainWindow(QMainWindow):
             state = EmptyState(
                 "No colors yet",
                 "Add a color to this project.",
-                "Add color",
             )
-            state.actionTriggered.connect(self.add_color)
             self.body_layout.addStretch(1)
             self.body_layout.addWidget(state)
             self.body_layout.addStretch(1)
         else:
+            caption = QLabel("Colors")
+            caption.setObjectName("SettingsGroupTitle")
+            self.body_layout.addWidget(caption)
+            self.body_layout.addSpacing(8)
+
+            card = ColorListCard()
             for color in project.colors:
-                item = ColorItem(
+                row = ColorRow(
                     color.id,
                     color.name,
                     self._display_color(color.hex),
                     color.hex,
                 )
-                item.copyRequested.connect(self.copy_color)
-                item.editRequested.connect(self.edit_color)
-                item.deleteRequested.connect(self.delete_color)
-                self.body_layout.addWidget(item)
+                row.copyRequested.connect(self.copy_color)
+                row.editRequested.connect(self.edit_color)
+                row.deleteRequested.connect(self.delete_color)
+                card.add_row(row)
+            self.body_layout.addWidget(card)
             self.body_layout.addStretch(1)
 
     def _format_changed(self, index: int) -> None:
@@ -715,6 +728,7 @@ class MainWindow(QMainWindow):
         self._persist(silent=True)
         if not enabled:
             self.update_banner.hide()
+            self.banner_holder.hide()
         else:
             self._schedule_update_check()
 
@@ -1013,7 +1027,7 @@ class MainWindow(QMainWindow):
         if self.sidebar.width() != sidebar_width:
             self.sidebar.setFixedWidth(sidebar_width)
         available = self.page_stack.width() - 96
-        self.center_column.setFixedWidth(max(560, min(1148, available)))
+        self.content_column.setFixedWidth(max(560, min(660, available)))
         self._position_floating_widgets()
 
     def resizeEvent(self, event: QResizeEvent) -> None:

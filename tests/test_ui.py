@@ -16,7 +16,7 @@ from vcolor import theme  # noqa: E402
 from vcolor.main_window import MainWindow  # noqa: E402
 from vcolor.models import AppData, ColorEntry, PaletteStore, Project  # noqa: E402
 from vcolor.palette_format import PortablePalette, save_palette  # noqa: E402
-from vcolor.widgets import ColorItem, ColorRow, EmptyState  # noqa: E402
+from vcolor.widgets import ColorListCard, ColorRow, EmptyState  # noqa: E402
 
 
 def sample_data() -> AppData:
@@ -70,12 +70,12 @@ class WindowSmokeTests(unittest.TestCase):
 
     def test_initial_render(self) -> None:
         self.assertTrue(self.window.format_combo.isEnabled())
-        self.assertEqual(len(self.window.body.findChildren(ColorRow)), 2)
+        rows = self.window.body.findChildren(ColorRow)
+        self.assertEqual(len(rows), 2)
         self.assertEqual(self.window.format_combo.currentText(), "HEX")
-        items = self.window.body.findChildren(ColorItem)
-        self.assertEqual(items[0].copy_button.text(), "Copy")
-        self.assertIs(items[0].copy_button.parentWidget(), items[0])
-        self.assertIs(items[0].row.parentWidget(), items[0])
+        self.assertEqual(len(self.window.body.findChildren(ColorListCard)), 1)
+        self.assertIs(rows[0].copy_button.parentWidget(), rows[0])
+        self.assertEqual(self.window.page_title.full_text(), "Website")
 
     def test_first_run_is_empty(self) -> None:
         self.window.set_data(AppData())
@@ -121,11 +121,11 @@ class WindowSmokeTests(unittest.TestCase):
     def test_copy_button_uses_selected_format(self) -> None:
         self.window.format_combo.setCurrentText("HSL")
         self.app.processEvents()
-        item = self.window.body.findChildren(ColorItem)[0]
-        item.copy_button.click()
+        row = self.window.body.findChildren(ColorRow)[0]
+        row.copy_button.click()
         self.assertIn("hsl(", QApplication.clipboard().text())
 
-    def test_clicking_tile_copies_value(self) -> None:
+    def test_clicking_row_copies_value(self) -> None:
         self.window.format_combo.setCurrentText("RGB")
         self.app.processEvents()
         row = self.window.body.findChildren(ColorRow)[0]
@@ -209,7 +209,11 @@ class WindowSmokeTests(unittest.TestCase):
         self.window.select_project(empty.id)
         self.app.processEvents()
         self.assertEqual(len(self.window.body.findChildren(ColorRow)), 0)
-        self.assertEqual(len(self.window.body.findChildren(EmptyState)), 1)
+        states = self.window.body.findChildren(EmptyState)
+        self.assertEqual(len(states), 1)
+        self.assertIsNone(states[0].action_button)
+        self.assertTrue(self.window.add_button.isVisible())
+        self.assertEqual(self.window.page_title.full_text(), empty.name)
 
     def test_autosave_writes_file(self) -> None:
         second = self.window.data.projects[1]

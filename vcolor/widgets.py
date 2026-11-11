@@ -72,6 +72,24 @@ class ElidedLabel(QLabel):
         super().setText(metrics.elidedText(self._full_text, Qt.TextElideMode.ElideRight, width))
 
 
+def _page_path(
+    x: float, y: float, w: float, h: float, fold: float, radius: float
+) -> QPainterPath:
+    """A page outline with a folded top-right corner."""
+    path = QPainterPath()
+    path.moveTo(x + radius, y)
+    path.lineTo(x + w - fold, y)
+    path.lineTo(x + w, y + fold)
+    path.lineTo(x + w, y + h - radius)
+    path.quadTo(x + w, y + h, x + w - radius, y + h)
+    path.lineTo(x + radius, y + h)
+    path.quadTo(x, y + h, x, y + h - radius)
+    path.lineTo(x, y + radius)
+    path.quadTo(x, y, x + radius, y)
+    path.closeSubpath()
+    return path
+
+
 def draw_icon(
     painter: QPainter,
     kind: str,
@@ -93,10 +111,19 @@ def draw_icon(
     s = min(w, h)
 
     if kind == "copy":
-        back = QRectF(cx - s * 0.31, cy - s * 0.39, s * 0.53, s * 0.53)
-        front = QRectF(cx - s * 0.22, cy - s * 0.22, s * 0.53, s * 0.53)
-        painter.drawRoundedRect(back, s * 0.09, s * 0.09)
-        painter.drawRoundedRect(front, s * 0.09, s * 0.09)
+        page_w = s * 0.52
+        front_x = cx - s * 0.16
+        front_y = cy - s * 0.24
+        back = _page_path(cx - s * 0.38, cy - s * 0.40, page_w, s * 0.62, s * 0.14, s * 0.07)
+        front = _page_path(front_x, front_y, page_w, s * 0.64, s * 0.15, s * 0.07)
+        cutout = QPainterPath()
+        cutout.addRect(QRectF(front_x - s * 0.04, front_y - s * 0.04, page_w + s * 0.08, s * 0.72))
+        painter.drawPath(back.subtracted(cutout))
+        painter.drawPath(front)
+        fold_x = front_x + page_w - s * 0.15
+        fold_y = front_y + s * 0.15
+        painter.drawLine(QPointF(fold_x, front_y), QPointF(fold_x, fold_y))
+        painter.drawLine(QPointF(fold_x, fold_y), QPointF(front_x + page_w, fold_y))
     elif kind == "trash":
         painter.drawLine(QPointF(cx - s * 0.36, cy - s * 0.27), QPointF(cx + s * 0.36, cy - s * 0.27))
         painter.drawLine(QPointF(cx - s * 0.15, cy - s * 0.39), QPointF(cx + s * 0.15, cy - s * 0.39))
@@ -370,6 +397,8 @@ class ColorSwatch(QWidget):
 
 
 class ColorRow(QFrame):
+    """A color row designed to sit inside a grouped libadwaita-style card."""
+
     copyRequested = Signal(str)
     editRequested = Signal(str)
     deleteRequested = Signal(str)
@@ -381,6 +410,9 @@ class ColorRow(QFrame):
         value: str,
         color: str,
         parent: QWidget | None = None,
+        *,
+        first: bool = False,
+        last: bool = False,
     ) -> None:
         super().__init__(parent)
         self.color_id = color_id
@@ -389,16 +421,18 @@ class ColorRow(QFrame):
         self.setObjectName("ColorRow")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
-        self.setFixedHeight(72)
+        self.setFixedHeight(64)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip("Click to copy this color")
         self.setAccessibleName(f"Color {name}")
+        self.setProperty("first", first)
+        self.setProperty("last", last)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(18, 0, 18, 0)
-        layout.setSpacing(16)
+        layout.setContentsMargins(16, 0, 12, 0)
+        layout.setSpacing(12)
 
-        self.swatch = ColorSwatch(color, 38)
+        self.swatch = ColorSwatch(color, 34)
         layout.addWidget(self.swatch)
 
         text_layout = QVBoxLayout()
@@ -418,30 +452,73 @@ class ColorRow(QFrame):
         text_layout.addWidget(self.value_label)
         layout.addLayout(text_layout, 1)
 
+        actions = QHBoxLayout()
+        actions.setContentsMargins(0, 0, 0, 0)
+        actions.setSpacing(2)
+
+        self.copy_button = IconButton(
+            "copy",
+            size=32,
+            icon_size=16,
+            color=theme.TEXT_MUTED,
+            hover_color=theme.TEXT,
+        )
+        self.copy_button.setToolTip(f"Copy {value}")
+        self.copy_button.setAccessibleName("Copy color")
+        self.copy_button.clicked.connect(
+            lambda: self.copyRequested.emit(self.color_id)
+        )
+        actions.addWidget(self.copy_button)
+
         self.edit_button = IconButton(
             "pencil",
-            size=36,
-            icon_size=18,
+            size=32,
+            icon_size=16,
             color=theme.TEXT_MUTED,
             hover_color=theme.TEXT,
         )
         self.edit_button.setToolTip("Edit color")
         self.edit_button.setAccessibleName("Edit color")
-        self.edit_button.clicked.connect(lambda: self.editRequested.emit(self.color_id))
-        layout.addWidget(self.edit_button)
+        self.edit_button.clicked.connect(
+            lambda: self.editRequested.emit(self.color_id)
+        )
+        actions.addWidget(self.edit_button)
+
+        actions.addSpacing(6)
+        separator = QFrame()
+        separator.setObjectName("ColorRowActionSeparator")
+        separator.setFixedSize(1, 20)
+        separator.setAttribute(
+            Qt.WidgetAttribute.WA_TransparentForMouseEvents, True
+        )
+        actions.addWidget(separator)
+        actions.addSpacing(6)
 
         self.delete_button = IconButton(
             "trash",
-            size=36,
-            icon_size=18,
+            size=32,
+            icon_size=16,
             color=theme.DANGER,
             hover_color=theme.DANGER,
             hover_background=theme.DANGER_BG,
         )
         self.delete_button.setToolTip("Delete color")
         self.delete_button.setAccessibleName("Delete color")
-        self.delete_button.clicked.connect(lambda: self.deleteRequested.emit(self.color_id))
-        layout.addWidget(self.delete_button)
+        self.delete_button.clicked.connect(
+            lambda: self.deleteRequested.emit(self.color_id)
+        )
+        actions.addWidget(self.delete_button)
+        layout.addLayout(actions)
+
+    def set_position(self, *, first: bool, last: bool) -> None:
+        if (
+            bool(self.property("first")) == first
+            and bool(self.property("last")) == last
+        ):
+            return
+        self.setProperty("first", first)
+        self.setProperty("last", last)
+        _repolish(self)
 
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -475,43 +552,35 @@ class ColorRow(QFrame):
         menu.deleteLater()
 
 
-class ColorItem(QWidget):
-    """A color tile with its copy action placed outside the tile."""
+class ColorListCard(QFrame):
+    """A rounded list card with divided color rows, like a settings group."""
 
-    copyRequested = Signal(str)
-    editRequested = Signal(str)
-    deleteRequested = Signal(str)
-
-    def __init__(
-        self,
-        color_id: str,
-        name: str,
-        value: str,
-        color: str,
-        parent: QWidget | None = None,
-    ) -> None:
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.color_id = color_id
-        self.setFixedHeight(72)
+        self.setObjectName("ColorListCard")
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self._layout = QVBoxLayout(self)
+        self._layout.setContentsMargins(0, 0, 0, 0)
+        self._layout.setSpacing(0)
+        self._rows: list[ColorRow] = []
 
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(12)
+    def add_row(self, row: ColorRow) -> None:
+        if self._rows:
+            divider = QFrame()
+            divider.setObjectName("ColorListDivider")
+            divider.setFixedHeight(1)
+            self._layout.addWidget(divider)
+        self._rows.append(row)
+        self._layout.addWidget(row)
+        self._refresh_positions()
 
-        self.copy_button = QPushButton("Copy")
-        self.copy_button.setObjectName("CopyButton")
-        self.copy_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.copy_button.setFixedSize(72, 34)
-        self.copy_button.setToolTip(f"Copy {value}")
-        self.copy_button.setAccessibleName("Copy color")
-        self.copy_button.clicked.connect(lambda: self.copyRequested.emit(self.color_id))
-        layout.addWidget(self.copy_button, 0, Qt.AlignmentFlag.AlignVCenter)
+    def rows(self) -> list[ColorRow]:
+        return list(self._rows)
 
-        self.row = ColorRow(color_id, name, value, color)
-        self.row.copyRequested.connect(self.copyRequested.emit)
-        self.row.editRequested.connect(self.editRequested.emit)
-        self.row.deleteRequested.connect(self.deleteRequested.emit)
-        layout.addWidget(self.row, 1)
+    def _refresh_positions(self) -> None:
+        last = len(self._rows) - 1
+        for index, row in enumerate(self._rows):
+            row.set_position(first=index == 0, last=index == last)
 
 
 class ProjectItem(QFrame):
@@ -669,6 +738,8 @@ class EmptyState(QWidget):
         layout.setSpacing(12)
         layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
+        self.action_button: QPushButton | None = None
+
         title_label = QLabel(title)
         title_label.setObjectName("EmptyTitle")
         title_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -689,6 +760,7 @@ class EmptyState(QWidget):
             button.setAccessibleName(action)
             button.clicked.connect(self.actionTriggered.emit)
             layout.addWidget(button, 0, Qt.AlignmentFlag.AlignHCenter)
+            self.action_button = button
 
         layout.addStretch(1)
 

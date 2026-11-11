@@ -245,7 +245,7 @@ class SettingsPage(QWidget):
         header.setFixedHeight(56)
 
         layout = QHBoxLayout(header)
-        layout.setContentsMargins(12, 8, 12, 8)
+        layout.setContentsMargins(48, 0, 48, 0)
         layout.setSpacing(0)
 
         self.back_button = IconButton(

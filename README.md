@@ -1,4 +1,8 @@
-# vColor
+<p align="center">
+  <img src="vcolor/resources/icon.png" width="128" height="128" alt="vColor logo">
+</p>
+
+<h1 align="center">vColor</h1>
 
 A fast, native desktop color project manager for Linux, macOS, and Windows,
 with a portable JSON project format for importing, exporting, and sharing

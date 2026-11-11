@@ -90,8 +90,8 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
     }}
 
     QLabel#PageTitle {{
-        font-size: 24px;
-        font-weight: 600;
+        font-size: 16px;
+        font-weight: 700;
         color: {TEXT};
     }}
 
@@ -151,26 +151,6 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
         background-color: {ACCENT_PRESSED};
     }}
 
-    QPushButton#CopyButton {{
-        background-color: rgba(255, 255, 255, 10%);
-        border: 1px solid transparent;
-        border-radius: 9px;
-        color: {TEXT};
-        font-size: 14px;
-        font-weight: 700;
-        min-width: 72px;
-        max-width: 72px;
-        min-height: 34px;
-        max-height: 34px;
-        padding: 0;
-    }}
-    QPushButton#CopyButton:hover {{
-        background-color: rgba(255, 255, 255, 15%);
-    }}
-    QPushButton#CopyButton:pressed {{
-        background-color: rgba(255, 255, 255, 30%);
-    }}
-
     QComboBox#FormatSelect {{
         background-color: rgba(255, 255, 255, 10%);
         border: 1px solid transparent;
@@ -218,26 +198,46 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
         padding-right: 12px;
     }}
 
+    QFrame#ColorListCard {{
+        background: #303030;
+        border: 1px solid #393939;
+        border-radius: 12px;
+    }}
     QFrame#ColorRow {{
-        background: {SURFACE};
+        background: transparent;
         border: none;
-        border-radius: 16px;
     }}
     QFrame#ColorRow:hover {{
-        background: {SURFACE_HOVER};
+        background: #383838;
     }}
-    QFrame#ColorRow[selected="true"] {{
-        background: {SURFACE_ACTIVE};
+    QFrame#ColorRow[first="true"] {{
+        border-top-left-radius: 11px;
+        border-top-right-radius: 11px;
+    }}
+    QFrame#ColorRow[last="true"] {{
+        border-bottom-left-radius: 11px;
+        border-bottom-right-radius: 11px;
+    }}
+    QFrame#ColorListDivider {{
+        background: #3C3C3C;
+        border: none;
+        margin-left: 16px;
+        margin-right: 16px;
+    }}
+    QFrame#ColorRowActionSeparator {{
+        background: {BORDER_STRONG};
+        border: none;
+        border-radius: 1px;
     }}
 
     QLabel#ColorName {{
         color: {TEXT};
-        font-size: 16px;
+        font-size: 14px;
         font-weight: 500;
     }}
     QLabel#ColorValue {{
         color: {TEXT_MUTED};
-        font-size: 15px;
+        font-size: 12px;
     }}
 
     QLabel#ProjectName {{
@@ -349,12 +349,12 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
     QPushButton#PrimaryButton {{
         background-color: {ACCENT};
         border: 1px solid transparent;
-        border-radius: 9px;
+        border-radius: 17px;
         color: white;
-        font-size: 15px;
-        font-weight: 700;
+        font-size: 14px;
+        font-weight: 600;
         min-height: 34px;
-        padding: 0 17px;
+        padding: 0 18px;
     }}
     QPushButton#PrimaryButton:hover {{
         background-color: {ACCENT_HOVER};
@@ -363,18 +363,18 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
         background-color: {ACCENT_PRESSED};
     }}
     QPushButton#PrimaryButton:disabled {{
-        background-color: rgba(53, 132, 228, 50%);
-        color: rgba(255, 255, 255, 50%);
+        background-color: rgba(255, 255, 255, 10%);
+        color: rgba(255, 255, 255, 45%);
     }}
     QPushButton#SecondaryButton {{
         background-color: rgba(255, 255, 255, 10%);
         border: 1px solid transparent;
-        border-radius: 9px;
+        border-radius: 17px;
         color: {TEXT};
-        font-size: 15px;
-        font-weight: 700;
+        font-size: 14px;
+        font-weight: 600;
         min-height: 34px;
-        padding: 0 17px;
+        padding: 0 18px;
     }}
     QPushButton#SecondaryButton:hover {{
         background-color: rgba(255, 255, 255, 15%);
@@ -385,12 +385,12 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
     QPushButton#DangerButton {{
         background-color: rgba(255, 123, 132, 15%);
         border: 1px solid transparent;
-        border-radius: 9px;
+        border-radius: 17px;
         color: #FF7B84;
-        font-size: 15px;
-        font-weight: 700;
+        font-size: 14px;
+        font-weight: 600;
         min-height: 34px;
-        padding: 0 17px;
+        padding: 0 18px;
     }}
     QPushButton#DangerButton:hover {{
         background-color: rgba(255, 123, 132, 20%);
@@ -471,8 +471,8 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
         background: {APP_BG};
     }}
     QWidget#SettingsHeader {{
-        background: {SIDEBAR_BG};
-        border-bottom: 1px solid #3A3A3A;
+        background: {APP_BG};
+        border: none;
     }}
     QLabel#SettingsHeaderTitle {{
         color: {TEXT};
