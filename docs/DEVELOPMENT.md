@@ -201,11 +201,12 @@ git commit -am "chore(release): bump version to 1.3.0"
 git push origin main
 ```
 
-The `release` job reads the version, creates the matching `v` tag if needed,
-downloads the CI artifacts, writes `SHA256SUMS.txt`, and publishes everything
-with generated release notes. If a release for the current version already
-exists, the job is skipped, so ordinary pushes to `main` only produce workflow
-artifacts.
+The workflow only runs for `main` pushes that touch `vcolor/__init__.py` or
+`pyproject.toml`, so README or source-only changes do not start a build. A
+lightweight check job then reads the version, creates the matching `v` tag if
+needed, downloads the CI artifacts, writes `SHA256SUMS.txt`, and publishes
+everything with generated release notes. If a release for the current version
+already exists, the check job stops before the build matrix starts.
 
 Pushing a tag that starts with `v` also builds every target and publishes the
 release, which is useful for manual or historical releases:
