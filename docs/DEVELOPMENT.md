@@ -192,17 +192,28 @@ and notarization on a macOS machine.
 
 ### Publishing a release
 
-Pushing a tag that starts with `v` builds every target and creates a GitHub
-Release with the archives attached:
+A push to `main` publishes a release when the version in `vcolor/__init__.py`
+does not have a release yet. Bump the version in `vcolor/__init__.py` and
+`pyproject.toml`, then commit and push:
+
+```bash
+git commit -am "chore(release): bump version to 1.3.0"
+git push origin main
+```
+
+The `release` job reads the version, creates the matching `v` tag if needed,
+downloads the CI artifacts, writes `SHA256SUMS.txt`, and publishes everything
+with generated release notes. If a release for the current version already
+exists, the job is skipped, so ordinary pushes to `main` only produce workflow
+artifacts.
+
+Pushing a tag that starts with `v` also builds every target and publishes the
+release, which is useful for manual or historical releases:
 
 ```bash
 git tag v1.0.0
 git push origin main v1.0.0
 ```
-
-The `release` job downloads the CI artifacts, writes `SHA256SUMS.txt`, and
-publishes everything with generated release notes. The release only happens for
-tag pushes, so a normal push to `main` just produces workflow artifacts.
 
 For a manual release, download the artifacts from the workflow run and attach
 the inner archives (not the artifact zips) in
@@ -229,6 +240,8 @@ vcolor/
   app.py            application bootstrap, command-line flags, theme setup
   main_window.py    window, projects, rows, import/export, persistence wiring
   settings_page.py  libadwaita-style preferences page
+  shortcuts.py      shortcut definitions, validation, and override resolution
+  shortcuts_page.py keyboard shortcuts page and Set Shortcut dialog
   system_accent.py  Windows/macOS/Linux accent-color detection with a fallback
   theme.py          dark theme tokens and the runtime accent stylesheet
   project_files.py  project-file import helpers and copy naming
