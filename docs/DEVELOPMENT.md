@@ -197,7 +197,7 @@ does not have a release yet. Bump the version in `vcolor/__init__.py` and
 `pyproject.toml`, then commit and push:
 
 ```bash
-git commit -am "chore(release): bump version to 1.3.1"
+git commit -am "chore(release): bump version to 1.3.2"
 git push origin main
 ```
 
