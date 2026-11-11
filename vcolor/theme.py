@@ -467,7 +467,8 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
         background-color: {ACCENT_PRESSED};
     }}
 
-    QWidget#SettingsPage, QWidget#SettingsContent {{
+    QWidget#SettingsPage, QWidget#SettingsContent,
+    QWidget#ShortcutsPage, QWidget#ShortcutsContent {{
         background: {APP_BG};
     }}
     QWidget#SettingsHeader {{
@@ -511,6 +512,63 @@ def build_stylesheet(font_family: str = "Inter Variable") -> str:
         border: none;
         margin-left: 16px;
         margin-right: 16px;
+    }}
+
+    QLabel#ShortcutsHint {{
+        color: {TEXT_MUTED};
+        font-size: 13px;
+    }}
+    QLabel#Keycap {{
+        background: #3A3A3A;
+        border: 1px solid #4A4A4A;
+        border-radius: 5px;
+        color: {TEXT};
+        font-size: 12px;
+        font-weight: 600;
+        padding: 2px 7px;
+    }}
+    QLabel#KeycapLarge {{
+        background: #3A3A3A;
+        border: 1px solid #4A4A4A;
+        border-radius: 7px;
+        color: {TEXT};
+        font-size: 14px;
+        font-weight: 600;
+        padding: 4px 10px;
+    }}
+    QLabel#KeycapPlus {{
+        color: {TEXT_DIM};
+        font-size: 12px;
+        font-weight: 500;
+    }}
+    QLabel#ShortcutPlaceholder {{
+        color: {TEXT_DIM};
+        font-size: 13px;
+    }}
+    QLabel#ShortcutPlaceholderLarge {{
+        color: {TEXT_DIM};
+        font-size: 15px;
+    }}
+    QFrame#ShortcutCapture {{
+        background: #2C2C2C;
+        border: 1px solid #3E3E3E;
+        border-radius: 12px;
+    }}
+    QPushButton#LinkButton {{
+        background: transparent;
+        border: none;
+        border-radius: 8px;
+        color: {ACCENT_HOVER};
+        font-size: 13px;
+        font-weight: 600;
+        min-height: 30px;
+        padding: 0 10px;
+    }}
+    QPushButton#LinkButton:hover {{
+        background: rgba(255, 255, 255, 8%);
+    }}
+    QPushButton#LinkButton:pressed {{
+        background: rgba(255, 255, 255, 14%);
     }}
 
     QMenu {{

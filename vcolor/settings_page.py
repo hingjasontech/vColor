@@ -20,7 +20,59 @@ from PySide6.QtWidgets import (
 
 from . import theme
 from .color_utils import DEFAULT_ACCENT
-from .widgets import FormatComboBox, IconButton
+from .widgets import FormatComboBox, IconButton, draw_icon
+
+
+def build_page_header(title: str, back_tooltip: str) -> tuple[QWidget, IconButton]:
+    """Build the flat, centered libadwaita-style page header."""
+    header = QWidget()
+    header.setObjectName("SettingsHeader")
+    header.setFixedHeight(56)
+
+    layout = QHBoxLayout(header)
+    layout.setContentsMargins(48, 0, 48, 0)
+    layout.setSpacing(0)
+
+    back_button = IconButton(
+        "arrow-left",
+        size=36,
+        icon_size=18,
+        color=theme.TEXT_MUTED,
+        hover_color=theme.TEXT,
+    )
+    back_button.setToolTip(back_tooltip)
+    back_button.setAccessibleName(back_tooltip)
+    layout.addWidget(back_button, 0, Qt.AlignmentFlag.AlignVCenter)
+
+    label = QLabel(title)
+    label.setObjectName("SettingsHeaderTitle")
+    label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+    layout.addWidget(label, 1)
+
+    spacer = QWidget()
+    spacer.setFixedWidth(36)
+    layout.addWidget(spacer)
+    return header, back_button
+
+
+class Chevron(QWidget):
+    """A non-interactive trailing chevron for navigation rows."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setFixedSize(16, 16)
+        self.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, True)
+
+    def paintEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        draw_icon(
+            painter,
+            "chevron-right",
+            QRectF(self.rect()),
+            QColor(theme.TEXT_DIM),
+            pen_width=1.6,
+        )
 
 
 class Switch(QAbstractButton):
@@ -117,17 +169,29 @@ class AccentColorButton(QAbstractButton):
 class SettingsRow(QWidget):
     """A title/subtitle row with an optional control at the trailing edge."""
 
+    activated = Signal()
+
     def __init__(
         self,
         title: str,
         subtitle: str = "",
         control: QWidget | None = None,
         parent: QWidget | None = None,
+        *,
+        clickable: bool = False,
     ) -> None:
         super().__init__(parent)
         self.setObjectName("SettingsRow")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setMinimumHeight(58)
+        self._clickable = clickable
+        self._hover = False
+        self._first = True
+        self._last = True
+        if clickable:
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+            self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 10, 16, 10)
@@ -151,6 +215,71 @@ class SettingsRow(QWidget):
         if control is not None:
             layout.addWidget(control, 0, Qt.AlignmentFlag.AlignVCenter)
 
+    def mouseReleaseEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        if (
+            self._clickable
+            and event.button() == Qt.MouseButton.LeftButton
+            and self.rect().contains(event.position().toPoint())
+        ):
+            self.activated.emit()
+        super().mouseReleaseEvent(event)
+
+    def set_position(self, *, first: bool, last: bool) -> None:
+        self._first = first
+        self._last = last
+        self.update()
+
+    def enterEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        self._hover = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        self._hover = False
+        self.update()
+        super().leaveEvent(event)
+
+    def keyPressEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        if self._clickable and event.key() in (
+            Qt.Key.Key_Return,
+            Qt.Key.Key_Enter,
+            Qt.Key.Key_Space,
+        ):
+            self.activated.emit()
+            event.accept()
+            return
+        super().keyPressEvent(event)
+
+    def paintEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        if self._clickable and self._hover and self.isEnabled():
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(255, 255, 255, 12))
+            rect = QRectF(self.rect())
+            radius = 0.0
+            if self._first and self._last:
+                radius = 11.0
+            elif self._first:
+                rect.adjust(0, 0, 0, 11)
+                radius = 11.0
+            elif self._last:
+                rect.adjust(0, -11, 0, 0)
+                radius = 11.0
+            painter.drawRoundedRect(rect, radius, radius)
+            painter.end()
+
+        super().paintEvent(event)
+        if self._clickable and self.hasFocus():
+            painter = QPainter(self)
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            painter.setPen(QPen(QColor(theme.ACCENT), 1.4))
+            painter.setBrush(Qt.BrushStyle.NoBrush)
+            painter.drawRoundedRect(
+                QRectF(self.rect()).adjusted(1.5, 1.5, -1.5, -1.5), 9, 9
+            )
+            painter.end()
+
 
 class SettingsGroup(QWidget):
     """A libadwaita preference group: a caption above a rounded card."""
@@ -173,16 +302,18 @@ class SettingsGroup(QWidget):
         self.card_layout.setSpacing(0)
         layout.addWidget(card)
 
-        self._row_count = 0
+        self._rows: list[SettingsRow] = []
 
     def add_row(self, row: SettingsRow) -> None:
-        if self._row_count:
+        if self._rows:
+            self._rows[-1].set_position(first=False, last=False)
             divider = QFrame()
             divider.setObjectName("SettingsDivider")
             divider.setFixedHeight(1)
             self.card_layout.addWidget(divider)
+        row.set_position(first=not self._rows, last=True)
         self.card_layout.addWidget(row)
-        self._row_count += 1
+        self._rows.append(row)
 
 
 class SettingsPage(QWidget):
@@ -195,6 +326,7 @@ class SettingsPage(QWidget):
     accentColorChanged = Signal(str)
     updateCheckChanged = Signal(bool)
     checkNowRequested = Signal()
+    shortcutsRequested = Signal()
     sourceRequested = Signal()
 
     def __init__(self, version: str = "0.0.0", parent: QWidget | None = None) -> None:
@@ -227,6 +359,7 @@ class SettingsPage(QWidget):
         column.setSpacing(24)
 
         column.addWidget(self._build_appearance_group())
+        column.addWidget(self._build_keyboard_group())
         column.addWidget(self._build_updates_group())
         column.addWidget(self._build_about_group())
         column.addStretch(1)
@@ -240,34 +373,10 @@ class SettingsPage(QWidget):
         self._update_column_width()
 
     def _build_header(self) -> QWidget:
-        header = QWidget()
-        header.setObjectName("SettingsHeader")
-        header.setFixedHeight(56)
-
-        layout = QHBoxLayout(header)
-        layout.setContentsMargins(48, 0, 48, 0)
-        layout.setSpacing(0)
-
-        self.back_button = IconButton(
-            "arrow-left",
-            size=36,
-            icon_size=18,
-            color=theme.TEXT_MUTED,
-            hover_color=theme.TEXT,
+        header, self.back_button = build_page_header(
+            "Settings", "Back to projects"
         )
-        self.back_button.setToolTip("Back to projects")
-        self.back_button.setAccessibleName("Back to projects")
         self.back_button.clicked.connect(self.backRequested.emit)
-        layout.addWidget(self.back_button, 0, Qt.AlignmentFlag.AlignVCenter)
-
-        title = QLabel("Settings")
-        title.setObjectName("SettingsHeaderTitle")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        layout.addWidget(title, 1)
-
-        spacer = QWidget()
-        spacer.setFixedWidth(36)
-        layout.addWidget(spacer)
         return header
 
     def _build_appearance_group(self) -> SettingsGroup:
@@ -316,6 +425,21 @@ class SettingsPage(QWidget):
                 self.hex_hash_switch,
             )
         )
+        return group
+
+    def _build_keyboard_group(self) -> SettingsGroup:
+        group = SettingsGroup("Keyboard")
+
+        row = SettingsRow(
+            "Keyboard shortcuts",
+            "View and change the shortcuts used in vColor.",
+            Chevron(),
+            clickable=True,
+        )
+        row.setToolTip("View and change keyboard shortcuts")
+        row.setAccessibleName("Keyboard shortcuts")
+        row.activated.connect(self.shortcutsRequested.emit)
+        group.add_row(row)
         return group
 
     def _build_updates_group(self) -> SettingsGroup:

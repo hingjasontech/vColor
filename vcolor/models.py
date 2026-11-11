@@ -112,6 +112,7 @@ class AppData:
     update_check: bool = True
     last_update_check: str | None = None
     skipped_version: str | None = None
+    shortcut_overrides: dict[str, str] = field(default_factory=dict)
     version: int = DATA_VERSION
 
     @property
@@ -146,6 +147,7 @@ class AppData:
             "update_check": self.update_check,
             "last_update_check": self.last_update_check,
             "skipped_version": self.skipped_version,
+            "shortcuts": dict(self.shortcut_overrides),
             "projects": [project.to_dict() for project in self.projects],
         }
 
@@ -178,6 +180,14 @@ class AppData:
             accent_color = DEFAULT_ACCENT
         last_check = raw.get("last_update_check")
         skipped = raw.get("skipped_version")
+        shortcuts = raw.get("shortcuts")
+        shortcut_overrides: dict[str, str] = {}
+        if isinstance(shortcuts, dict):
+            shortcut_overrides = {
+                str(key): str(value)
+                for key, value in shortcuts.items()
+                if isinstance(key, str) and isinstance(value, str)
+            }
         data = cls(
             projects=projects,
             active_project_id=active,
@@ -188,6 +198,7 @@ class AppData:
             update_check=update_check,
             last_update_check=str(last_check) if last_check else None,
             skipped_version=str(skipped) if skipped else None,
+            shortcut_overrides=shortcut_overrides,
         )
         data.ensure_active_project()
         return data

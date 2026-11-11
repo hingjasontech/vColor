@@ -37,6 +37,13 @@ from .color_utils import DEFAULT_ACCENT, format_color, slugify
 from .models import AppData, ColorEntry, PaletteStore, Project, StoreError, utc_now
 from .project_files import project_from_portable, read_project_file, unique_project_name
 from .settings_page import SettingsPage
+from .shortcuts import (
+    SHORTCUT_ACTIONS,
+    resolve_shortcuts,
+    sanitize_overrides,
+    shortcut_text,
+)
+from .shortcuts_page import ShortcutsPage
 from .system_accent import system_accent_color
 from .widgets import (
     ColorListCard,
@@ -78,6 +85,8 @@ class MainWindow(QMainWindow):
         self.updater: UpdateChecker | None = None
         self._latest_release: ReleaseInfo | None = None
         self._manual_update_check = False
+        self._shortcut_objects: dict[str, QShortcut] = {}
+        self._shortcuts_return_page: QWidget | None = None
 
         self.setWindowTitle("vColor")
         self.setMinimumSize(QSize(980, 640))
@@ -93,12 +102,15 @@ class MainWindow(QMainWindow):
 
         self.main_content = self._build_main_content()
         self.settings_page = SettingsPage(self.version)
+        self.shortcuts_page = ShortcutsPage()
         self.page_stack = QStackedWidget(root)
         self.page_stack.setObjectName("PageStack")
         self.page_stack.addWidget(self.main_content)
         self.page_stack.addWidget(self.settings_page)
+        self.page_stack.addWidget(self.shortcuts_page)
         root_layout.addWidget(self.page_stack, 1)
         self.setCentralWidget(root)
+        self._shortcuts_return_page = self.main_content
 
         self.toast = Toast(self.page_stack)
 
@@ -117,7 +129,10 @@ class MainWindow(QMainWindow):
             self._update_check_changed
         )
         self.settings_page.checkNowRequested.connect(self.check_for_updates)
+        self.settings_page.shortcutsRequested.connect(self.show_shortcuts_page)
         self.settings_page.sourceRequested.connect(self.open_source_page)
+        self.shortcuts_page.backRequested.connect(self._close_shortcuts_page)
+        self.shortcuts_page.shortcutsChanged.connect(self._shortcuts_changed)
 
         self.setAcceptDrops(True)
 
@@ -157,6 +172,7 @@ class MainWindow(QMainWindow):
         create_button.setCursor(Qt.CursorShape.PointingHandCursor)
         create_button.setToolTip("Create a new project (Ctrl+Shift+N)")
         create_button.clicked.connect(self.new_project)
+        self.create_button = create_button
         layout.addWidget(create_button, 0, Qt.AlignmentFlag.AlignHCenter)
         layout.addSpacing(69)
 
@@ -294,15 +310,50 @@ class MainWindow(QMainWindow):
         return main
 
     def _install_shortcuts(self) -> None:
-        for sequence, slot in (
-            (QKeySequence(QKeySequence.StandardKey.New), self.add_color),
-            (QKeySequence("Ctrl+Shift+N"), self.new_project),
-            (QKeySequence(QKeySequence.StandardKey.Open), self.import_project),
-            (QKeySequence("Ctrl+E"), self.export_active_project),
-            (QKeySequence("Ctrl+I"), self.import_active_project),
-        ):
+        for shortcut in self._shortcut_objects.values():
+            shortcut.setEnabled(False)
+            shortcut.deleteLater()
+        self._shortcut_objects.clear()
+
+        handlers = {
+            "add_color": self.add_color,
+            "new_project": self.new_project,
+            "import_project": self.import_project,
+            "export_project": self.export_active_project,
+            "import_colors": self.import_active_project,
+            "open_settings": self.show_settings_page,
+        }
+        resolved = resolve_shortcuts(self.data.shortcut_overrides)
+        for action in SHORTCUT_ACTIONS:
+            value = resolved.get(action.id, "")
+            if not value:
+                continue
+            sequence = QKeySequence.fromString(
+                value, QKeySequence.SequenceFormat.PortableText
+            )
+            if sequence.isEmpty():
+                continue
             shortcut = QShortcut(sequence, self)
-            shortcut.activated.connect(slot)
+            shortcut.setContext(Qt.ShortcutContext.WindowShortcut)
+            shortcut.activated.connect(handlers[action.id])
+            self._shortcut_objects[action.id] = shortcut
+        self._update_shortcut_tooltips()
+
+    def _update_shortcut_tooltips(self) -> None:
+        resolved = resolve_shortcuts(self.data.shortcut_overrides)
+
+        def hint(action_id: str) -> str:
+            text = shortcut_text(resolved.get(action_id, ""))
+            return f" ({text})" if text else ""
+
+        self.add_button.setToolTip(f"Add color{hint('add_color')}")
+        self.create_button.setToolTip(
+            f"Create a new project{hint('new_project')}"
+        )
+        self.import_button.setToolTip(
+            f"Import a vColor project file{hint('import_project')}"
+        )
+        self.settings_button.setToolTip(f"Open settings{hint('open_settings')}")
 
     # --------------------------------------------------------------- data
     def bootstrap(self) -> None:
@@ -330,6 +381,28 @@ class MainWindow(QMainWindow):
         self.page_stack.setCurrentWidget(self.settings_page)
         self.settings_button.set_selected(True)
         self._position_floating_widgets()
+
+    def show_shortcuts_page(self) -> None:
+        origin = self.page_stack.currentWidget()
+        if origin is self.shortcuts_page:
+            return
+        self._shortcuts_return_page = origin
+        self.shortcuts_page.load(self.data.shortcut_overrides)
+        self.page_stack.setCurrentWidget(self.shortcuts_page)
+        self.settings_button.set_selected(origin is self.settings_page)
+        self._position_floating_widgets()
+
+    def _close_shortcuts_page(self) -> None:
+        if self._shortcuts_return_page is self.settings_page:
+            self.show_settings_page()
+        else:
+            self.show_projects_page()
+
+    def _shortcuts_changed(self, overrides: dict[str, str]) -> None:
+        self.data.shortcut_overrides = sanitize_overrides(overrides)
+        self._persist(silent=True)
+        self._install_shortcuts()
+        self.shortcuts_page.load(self.data.shortcut_overrides)
 
     # --------------------------------------------------------- project import
     def import_project(self) -> None:
@@ -530,6 +603,9 @@ class MainWindow(QMainWindow):
 
     def set_data(self, data: AppData) -> None:
         self.data = data
+        self.data.shortcut_overrides = sanitize_overrides(
+            self.data.shortcut_overrides
+        )
         self.data.ensure_active_project()
         self._apply_display_format(self.data.display_format)
         self.settings_page.set_show_hex_hash(self.data.show_hex_hash)
@@ -538,6 +614,7 @@ class MainWindow(QMainWindow):
         self._apply_accent()
         self._populate_projects()
         self._render_project()
+        self._install_shortcuts()
         self._position_floating_widgets()
 
     def _apply_accent(self) -> None:

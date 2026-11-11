@@ -61,8 +61,15 @@ page. To opt out, set `"update_check": false` in `palettes.json`.
 ## Settings
 
 Click **Settings** at the bottom of the sidebar to change the accent color, the
-color format, whether HEX values show a leading `#`, automatic update checks, or
-to check for updates now. Click the back arrow to return to your projects.
+color format, whether HEX values show a leading `#`, keyboard shortcuts,
+automatic update checks, or to check for updates now. Click the back arrow to
+return to your projects.
+
+Under **Keyboard**, select **Keyboard shortcuts** to view and change every
+shortcut. Select a row, press the new key combination, and choose **Set**.
+**Reset to Default** restores the built-in combination. Press **Backspace** in
+the dialog to disable a shortcut, or **Esc** to cancel. Changes are saved
+automatically.
 
 Under **Appearance**, vColor follows your operating system's accent color by
 default. Turn off **Follow system accent color**, or click the color swatch, to
@@ -74,13 +81,17 @@ Under **About**, **Open GitHub** opens
 
 ## Keyboard shortcuts
 
-| Action | Shortcut |
+| Action | Default shortcut |
 | --- | --- |
 | New color | `Ctrl/Cmd+N` |
 | New project | `Ctrl/Cmd+Shift+N` |
 | Import project file | `Ctrl/Cmd+O` |
 | Export active project | `Ctrl/Cmd+E` |
 | Import colors into active project | `Ctrl/Cmd+I` |
+| Open settings | `Ctrl/Cmd+,` |
+
+These are defaults; you can change or disable any shortcut under **Settings →
+Keyboard → Keyboard shortcuts**.
 
 Double-click a project to rename it. Right-click a project to duplicate it,
 export it, or import colors into it.
