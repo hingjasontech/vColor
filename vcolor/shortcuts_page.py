@@ -60,7 +60,6 @@ class KeycapLabel(QWidget):
             widget = item.widget()
             if widget is not None:
                 widget.hide()
-                widget.setParent(None)
                 widget.deleteLater()
 
         labels = shortcut_keycaps(value)
