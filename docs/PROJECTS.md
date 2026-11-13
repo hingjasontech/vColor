@@ -1,96 +1,109 @@
-# Portable projects
+# Palette projects
 
-A vColor project is a small JSON document that can be stored, shared, and
-version-controlled on its own — `catppuccin-mocha.json`, `libadwaita.json`,
-`material-3.json`, and so on. The same format is used by the GUI's **Import
-project** and **Export project** actions.
+A vColor project is a named group of colors. It is not tied to a document
+format: vColor imports and exports the same palette formats that other design
+tools use, so a project can move between vColor, Coolors, GIMP, Inkscape,
+Adobe apps, and codebases without a conversion step.
+
+The project name comes from the file name. Importing `catppuccin-mocha.css`
+creates a project called **Catppuccin Mocha**. File metadata such as
+descriptions, source URLs, licenses, and tags is not stored in vColor.
 
 vColor does not bundle a theme catalog. Theme colors change upstream and have
-different licenses, so the intended workflow is: fetch the official colors,
-write a portable project file, then import it. Coding agents can follow the
-recipes in [AGENTS.md](../AGENTS.md) in this repository.
+different licenses, so the intended workflow is to fetch the official colors,
+write a palette file, and import it. Coding agents can follow the recipes in
+[AGENTS.md](../AGENTS.md).
 
-## File format
+## Supported formats
+
+| Format | Import | Export | Notes |
+| --- | --- | --- | --- |
+| JSON | Yes | Yes | Coolors array, object, or extended array; also generic JSON. |
+| CSS / SCSS | Yes | Yes | Custom properties (`--name`) and SCSS variables (`$name`). |
+| Tailwind config | Yes | Yes | Exports a v3 `theme.extend.colors` mapping; flattens shades on import. |
+| XML | Yes | Yes | Reads color elements and `name`/`hex`/`r`/`g`/`b` attributes. |
+| SVG | Yes | Yes | Exports a labeled swatch sheet; ignores text colors on import. |
+| ASE | Yes | Yes | Adobe Swatch Exchange. Imports RGB, CMYK, LAB, and Gray. |
+| GPL | Yes | Yes | GIMP palette. |
+| CSV | Yes | Yes | Flat comma-separated hex, matching Coolors. |
+| TXT | Yes | Yes | Plain hex values, or `#rrggbb<TAB>Name` when names exist. |
+| Coolors link | Yes | Yes | `https://coolors.co/...` palette URLs. |
+
+PDF and PNG are not supported because they cannot be imported back into a
+palette.
+
+## JSON format
+
+Exports use an array of objects:
 
 ```json
-{
-  "format": "vcolor.palette",
-  "version": 1,
-  "id": "my-project",
-  "name": "My Project",
-  "description": "One-line summary.",
-  "source": "https://example.com/my-project",
-  "license": "MIT",
-  "tags": ["dark"],
-  "colors": [
-    { "name": "background", "hex": "#101014" },
-    { "name": "foreground", "hex": "#f2f2f7" }
-  ]
-}
+[
+  { "name": "background", "hex": "#101014" },
+  { "name": "foreground", "hex": "#f2f2f7" }
+]
 ```
 
-| Field | Required | Purpose |
-| --- | --- | --- |
-| `format` | No | Always `vcolor.palette` when written. Omitted files are still readable. |
-| `version` | No | Format version; currently `1`. |
-| `id` | No | Stable slug. Defaults to a slug of `name`. |
-| `name` | Yes | Display name. |
-| `description` | No | One-line summary. |
-| `source` | No | Upstream project URL. |
-| `license` | No | SPDX identifier or short license name. |
-| `tags` | No | Lowercase search labels, e.g. `dark`, `light`, `material`. |
-| `colors` | Yes | Array of `{"name", "hex"}` objects; at least one valid color. |
+The reader also accepts the shapes Coolors produces:
 
-The `vcolor.palette` format identifier is kept for compatibility with existing
-files. Internally, an imported file becomes a vColor **project**.
+- an array of `{"name", "hex"}` objects, with extra fields ignored;
+- an array of hex strings;
+- a `{"name": "#hex"}` object;
+- an extended array of objects with `hex`/`value` fields;
+- a wrapper object such as `{"colors": [...]}`.
 
-For convenience, the reader also accepts `colors` as an object
-(`{"base": "#101014"}`) or a bare array of hex strings. Exports always use the
-canonical array form. Hex values are normalized to lowercase `#rrggbb`;
-invalid entries are skipped when reading, and a project with no valid colors is
-rejected.
+Hex values are normalized to lowercase `#rrggbb`. Invalid entries are skipped;
+a file with no valid colors is rejected.
 
-The machine-readable JSON Schema lives in the source tree in
-[`vcolor/palette_format.py`](../vcolor/palette_format.py) as `PALETTE_SCHEMA`.
-It is not copied to the user's machine.
+The old custom `vcolor.palette` JSON document is no longer supported. Files
+that use it are rejected; use a standard palette format instead.
+
+## Project names
+
+The file name becomes the project name: separators become spaces and words are
+title-cased.
+
+| File | Project |
+| --- | --- |
+| `catppuccin-mocha.json` | Catppuccin Mocha |
+| `TokyoNight.css` | Tokyo Night |
+| `my_theme.v2.txt` | My Theme V2 |
+
+Duplicate names get a numbered copy: `Catppuccin Mocha`, then
+`Catppuccin Mocha (2)`, `Catppuccin Mocha (3)`, and so on. Existing projects
+are never overwritten.
 
 ## Importing a project
 
 Use **Import project** at the bottom of the sidebar, just above **Settings**,
-and choose one or more `.json` project files. You can also drag one or more
-`.json` project files onto the vColor window.
+and choose one or more palette files. You can also drag palette files onto the
+vColor window. vColor does not watch folders.
 
 - Every valid file creates a **new project** and becomes the active project.
-- A duplicate name gets a numbered copy: `Catppuccin Mocha`, then
-  `Catppuccin Mocha (2)`, `Catppuccin Mocha (3)`, and so on. Existing projects
-  are never overwritten.
-- The app stores only the project name and colors. `source`, `license`, and
-  `tags` stay in the JSON file as the source of truth.
 - The original file is not moved or modified.
-- The toast notification offers **Undo**, which removes the imported project
+- Invalid files are skipped with a notification.
+- The toast notification offers **Undo**, which removes the imported projects
   and restores the previously active project.
 
 ## Importing colors into a project
 
 Right-click a project in the sidebar and choose **Import colors...**, or press
-`Ctrl/Cmd+I` to import into the active project. This appends colors from JSON,
-CSS, or GIMP `.gpl` files to that project instead of creating a new one.
+`Ctrl/Cmd+I` to import into the active project. This appends colors from any
+supported palette file to that project instead of creating a new one.
 
 ## Exporting a project
 
 Right-click a project and choose **Export project...**, or press `Ctrl/Cmd+E`
-to export the active project. Choose:
+to export the active project. Pick a format in the save dialog. The extension
+you type selects the format when it is recognized, so `theme.ase` exports ASE
+even if the JSON filter is selected. If you omit the extension, vColor appends
+the selected format's extension. Both plain text formats use `.txt`, so the
+selected filter chooses between a hex list and a Coolors link.
 
-- **JSON project** — the portable `vcolor.palette` document.
-- **CSS variables** — a `:root` block of custom properties.
-- **GIMP palette** — a `.gpl` file.
-
-A JSON export contains the project name and colors, plus the `format`,
-`version`, and `id` fields. It does not contain `source`, `license`, or `tags`
-because the app does not store that metadata.
+Formats that carry color names preserve them. CSV and Coolors links contain
+only hex values, so imported colors get generated names like **Color 1**.
 
 ## Licensing
 
-The project data remains under its upstream project's license. Put that in the
-`license` field and keep the `source` URL. vColor itself is MIT-licensed; see
-the repository `LICENSE`.
+Palette colors remain under their upstream project's license. vColor stores only
+project names, colors, and app settings. If you redistribute a palette, keep its
+license and source information alongside the file.

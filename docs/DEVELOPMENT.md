@@ -75,8 +75,8 @@ uv run python -m unittest discover -s tests -v
 ```
 
 The suite covers color conversion, contrast, persistence, corrupt-file recovery,
-project file import/export, system accent detection, update version comparison,
-and a headless UI smoke test.
+palette import/export, project-file naming, system accent detection, update
+version comparison, and a headless UI smoke test.
 
 ## README screenshot
 
@@ -245,13 +245,12 @@ vcolor/
   shortcuts_page.py keyboard shortcuts page and Set Shortcut dialog
   system_accent.py  Windows/macOS/Linux accent-color detection with a fallback
   theme.py          dark theme tokens and the runtime accent stylesheet
-  project_files.py  project-file import helpers and copy naming
+  project_files.py  palette-to-project import helpers and project naming
   widgets.py        custom-painted buttons, rows, toast, empty state
   dialogs.py        project/color/confirm dialogs
   color_utils.py    conversions, contrast, formatting
   models.py         data model and atomic JSON store
-  palette_format.py portable project load/save and JSON Schema
-  palette_io.py     JSON/CSS/GPL color import and export
+  palette_formats.py palette format detection, import, and export
   updater.py        GitHub release lookup and version comparison
   resources/        Inter font and app icons
 packaging/          PyInstaller spec, Inno Setup script, Linux desktop entry

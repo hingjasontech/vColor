@@ -2,7 +2,7 @@
 
 vColor is a PySide6/Qt Widgets desktop color project manager for Linux, macOS,
 and Windows. It deliberately ships **no theme catalog**. This file covers both
-work on the app and generating portable theme projects for users.
+work on the app and generating palette files for users.
 
 ## Commands
 
@@ -52,14 +52,14 @@ uv run python -m vcolor    # equivalent entry point
 - `vcolor/main_window.py` owns the window, project list/rendering, autosave,
   shortcuts, drag-and-drop, import/export, and update banner. Persistence is
   gated by `MainWindow._loaded`; UI tests set it before calling `set_data`.
-- Project import flow: `import_project_files` -> `project_files.read_project_file`
-  (2 MB cap) -> `palette_format.load_palette` -> `PortablePalette.to_project`.
-  Imports append and select the last new project; duplicate names become
-  `Name (2)`, `Name (3)`, etc. Invalid files are skipped with a toast. Undo
-  removes the imported projects.
-- `vcolor/palette_format.py` defines the portable `vcolor.palette` format and
-  `PALETTE_SCHEMA`. `vcolor/palette_io.py` handles CSS/GPL/JSON color import and
-  export. `vcolor/project_files.py` handles project-file import and copy naming.
+- Palette import flow: `import_project_files` -> `project_files.read_project_file`
+  (2 MB cap) -> `palette_formats.import_palette`; each file becomes a project
+  named from its file stem. Imports append and select the last new project;
+  duplicate names become `Name (2)`, `Name (3)`, etc. Invalid files are skipped
+  with a toast. Undo removes the imported projects.
+- `vcolor/palette_formats.py` detects, parses, and writes all supported palette
+  formats. `vcolor/project_files.py` handles file-name project naming and
+  duplicate-name resolution.
 - UI is custom-painted Qt widgets (`widgets.py`, `dialogs.py`,
   `settings_page.py`, `shortcuts_page.py`) with runtime tokens and accent colors
   in `theme.py`; `system_accent.py` detects the OS accent.
@@ -70,10 +70,12 @@ uv run python -m vcolor    # equivalent entry point
   The release workflow runs on `v*` tags and on `main` pushes touching
   `__init__.py` or `pyproject.toml`.
 
-## Portable projects
+## Palette files
 
-A vColor project is one standalone `.json` file. Users import it explicitly with
-**Import project** in the sidebar, by dragging files onto the window, or with a
+A vColor project is a name plus a list of colors. The project name always comes
+from the palette file's stem, so files stay interchangeable with Coolors, GIMP,
+Inkscape, Adobe apps, and codebases. Users import files explicitly with
+**Import project** in the sidebar, by dragging them onto the window, or with a
 project's **Import colors** action. The app does not watch folders. Every valid
 file becomes a new project; existing projects are never overwritten. Invalid
 files are rejected with a notification.
@@ -82,47 +84,52 @@ Write the file somewhere the user can reach (the workspace, downloads, or a path
 they choose). Never write into the vColor application data directory, and never
 create `AGENTS.md`, schema files, or inbox folders there.
 
-Canonical format:
+Supported formats for both import and export:
+
+- Coolors links (`https://coolors.co/...`)
+- CSS and SCSS variables
+- JSON
+- CSV and plain text hex lists
+- XML
+- SVG swatch sheets
+- Adobe Swatch Exchange (`.ase`)
+- Tailwind configs
+- GIMP palettes (`.gpl`)
+
+Canonical JSON export:
 
 ```json
-{
-  "format": "vcolor.palette",
-  "version": 1,
-  "id": "my-theme",
-  "name": "My Theme",
-  "description": "One-line summary.",
-  "source": "https://example.com/my-theme",
-  "license": "MIT",
-  "tags": ["dark"],
-  "colors": [
-    { "name": "background", "hex": "#101014" },
-    { "name": "foreground", "hex": "#f2f2f7" }
-  ]
-}
+[
+  { "name": "background", "hex": "#101014" },
+  { "name": "foreground", "hex": "#f2f2f7" }
+]
 ```
 
-- `name` and at least one valid color are required; everything else is optional.
-- Always write `"format": "vcolor.palette"`; reading also accepts files without it.
-- `id` defaults to a slug of `name`. Keep it stable and file/URL friendly.
-- Write `colors` as an array of `{"name", "hex"}` objects. The reader also accepts
-  a name-to-hex object or an array of hex strings, but exports use the array form.
+- Write `colors` as an array of `{"name", "hex"}` objects. The reader also
+  accepts a name-to-hex object, an array of hex strings, extended Coolors-style
+  arrays, and a `{"colors": [...]}` wrapper.
+- Do not add `format`, `version`, `id`, `description`, `source`, `license`, or
+  `tags` fields. vColor stores only project names, colors, and app settings.
+- The old custom `vcolor.palette` JSON document is no longer supported and is
+  rejected on import.
 - Hex values are normalized to lowercase `#rrggbb`; invalid colors are skipped.
-- Record the upstream `source` URL and `license` when they exist.
-- `source`, `license`, `description`, and `tags` live only in the project file.
-  `palettes.json` stores project names, colors, and app settings, not this metadata.
-  Exporting from the GUI therefore omits those fields.
+  A file with no valid colors is rejected.
+- Name the file after the theme: `catppuccin-mocha.json` becomes **Catppuccin
+  Mocha**. Real separators in the file name become spaces.
+- Record the upstream `source` URL and `license` in your response or alongside
+  the palette; vColor does not persist that metadata.
 
 ## Generating themes
 
 1. **Fetch official colors** from the upstream project, repository, or docs.
    Do not invent or approximate hex values. Preserve the project's color names
    and intended order, and note the license and source URL.
-2. **Write a portable file** in the format above and tell the user which file to
-   import.
+2. **Write a palette file** in a supported format, using the theme name as the
+   file name, and tell the user which file to import.
 3. **Ask the user to import it** with **Import project** or by dragging it onto
    the window.
-4. **Verify** that the file is valid JSON with a name and at least one `#rrggbb`
-   color.
+4. **Verify** that the file is valid for its format and contains at least one
+   `#rrggbb` color.
 
 Theme notes:
 
@@ -139,7 +146,8 @@ Theme notes:
 
 ## Repository rules
 
-- Do not add theme projects to the repository unless the user explicitly asks.
-  Theme projects are user data, not source code.
+- Do not add theme palette files to the repository unless the user explicitly
+  asks. Theme palettes are user data, not source code.
 - Do not hand-edit `palettes.json`; use the GUI.
-- Keep `source` and `license` metadata accurate when converting a theme.
+- Report upstream `source` and `license` information accurately when converting
+  a theme; vColor does not store that metadata.

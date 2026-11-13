@@ -4,9 +4,10 @@
 
 - Multiple projects with rename, delete, and undo.
 - Add, edit, copy, and delete colors.
-- Enter colors as hex, `rgb()`, `hsl()`, `oklch()`, or CSS names like `tomato` —
-  vColor normalizes them to hex automatically. Names are optional; unnamed colors
-  are saved as “Untitled color”.
+- Enter colors as hex, `rgb()`, `hsl()`, `hsb()`/`hsv()`, `cmyk()`, `lab()`,
+  `oklch()`, or CSS names like `tomato` — vColor normalizes them to hex
+  automatically. Names are optional; unnamed colors are saved as “Untitled
+  color”.
 - Live color picker plus HEX, RGB, HSL, OKLCH, and Display P3 conversions.
 - WCAG contrast checks against white and black.
 - Format selector updates the values shown and copied in the list, and remembers
@@ -15,10 +16,12 @@
 - Accent color that follows your operating system by default, with a custom
   color picker in Settings.
 - Automatic saving with atomic JSON writes — no Save button needed.
-- Import a project from a portable `.json` file with **Import project**.
-- Import colors from JSON, CSS, or GIMP `.gpl` files into an existing project.
-- Export projects as portable JSON, CSS custom properties, or GIMP `.gpl` files.
-- Drag one or more `.json` project files onto the window to add them as projects.
+- Import a project from JSON, CSS/SCSS, Tailwind, XML, SVG, ASE, GPL, CSV, TXT,
+  or a Coolors link with **Import project**.
+- Import colors from any supported palette file into an existing project.
+- Export projects as JSON, CSS/SCSS variables, Tailwind config, XML, SVG, ASE,
+  GPL, CSV, a hex list, or a Coolors link.
+- Drag one or more palette files onto the window to add them as projects.
 - No built-in theme catalog: ask your AI assistant for a theme, or supply the
   official colors yourself.
 - Starts with an empty workspace so you can create your own projects.
@@ -85,7 +88,7 @@ Under **About**, **Open GitHub** opens
 | --- | --- |
 | New color | `Ctrl/Cmd+N` |
 | New project | `Ctrl/Cmd+Shift+N` |
-| Import project file | `Ctrl/Cmd+O` |
+| Import palette file | `Ctrl/Cmd+O` |
 | Export active project | `Ctrl/Cmd+E` |
 | Import colors into active project | `Ctrl/Cmd+I` |
 | Open settings | `Ctrl/Cmd+,` |
@@ -103,14 +106,14 @@ also right-click a color for **Edit**, **Copy**, and **Delete**.
 
 Ask your AI assistant for a theme, for example “generate a Catppuccin Mocha
 theme using vColor.” The assistant should use the instructions in this
-repository's [AGENTS.md](../AGENTS.md) and write a portable `.json` project
-file.
+repository's [AGENTS.md](../AGENTS.md) and write a palette file in a supported
+format.
 
 Then import it with **Import project** at the bottom of the sidebar, or drag the
-file onto the vColor window. The project appears immediately. Duplicate names
-are added as numbered copies, and a toast offers **Undo** after an import.
+file onto the vColor window. The project name comes from the file name. Duplicate
+names are added as numbered copies, and a toast offers **Undo** after an import.
 
-See [Portable projects](PROJECTS.md) for the file format and import rules.
+See [Palette projects](PROJECTS.md) for the formats and import rules.
 
 ## Where data lives
 
