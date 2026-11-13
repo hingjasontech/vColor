@@ -128,7 +128,7 @@ wheels = [
 
 [[package]]
 name = "vcolor"
-version = "1.3.2"
+version = "2.0.0"
 source = { editable = "." }
 dependencies = [
     { name = "pyside6-essentials" },
