@@ -35,7 +35,15 @@ from PySide6.QtWidgets import (
 from . import theme
 from .color_utils import DEFAULT_ACCENT, format_color, slugify
 from .models import AppData, ColorEntry, PaletteStore, Project, StoreError, utc_now
-from .project_files import project_from_portable, read_project_file, unique_project_name
+from .palette_formats import (
+    IMPORT_FILTER,
+    export_filter_string,
+    export_palette,
+    import_palette,
+    is_supported_palette_file,
+    resolve_export_target,
+)
+from .project_files import project_from_palette, read_project_file, unique_project_name
 from .settings_page import SettingsPage
 from .shortcuts import (
     SHORTCUT_ACTIONS,
@@ -197,7 +205,7 @@ class MainWindow(QMainWindow):
         footer_layout.setSpacing(2)
 
         self.import_button = SidebarAction("import", "Import project")
-        self.import_button.setToolTip("Import a vColor project file (Ctrl+O)")
+        self.import_button.setToolTip("Import a palette file as a new project (Ctrl+O)")
         self.import_button.clicked.connect(self.import_project)
         footer_layout.addWidget(self.import_button)
 
@@ -351,7 +359,7 @@ class MainWindow(QMainWindow):
             f"Create a new project{hint('new_project')}"
         )
         self.import_button.setToolTip(
-            f"Import a vColor project file{hint('import_project')}"
+            f"Import a palette file as a new project{hint('import_project')}"
         )
         self.settings_button.setToolTip(f"Open settings{hint('open_settings')}")
 
@@ -411,7 +419,7 @@ class MainWindow(QMainWindow):
             self,
             "Import project",
             "",
-            "vColor project (*.json);;All files (*)",
+            IMPORT_FILTER,
         )
         if paths:
             self.import_project_files([Path(path) for path in paths])
@@ -479,18 +487,18 @@ class MainWindow(QMainWindow):
         failures = 0
         for path in paths:
             try:
-                portable = read_project_file(path)
+                colors = read_project_file(path)
             except (OSError, ValueError):
                 failures += 1
                 continue
-            projects.append(project_from_portable(self.data, portable))
+            projects.append(project_from_palette(self.data, path, colors))
 
         if projects:
             self._commit_imports(projects, previous_active_id, failures=failures)
         elif failures:
             count = failures
             self.toast.show_message(
-                f"Could not import {count} project file{'s' if count != 1 else ''}",
+                f"Could not import {count} palette file{'s' if count != 1 else ''}",
                 kind="error",
                 duration=5000,
             )
@@ -503,7 +511,7 @@ class MainWindow(QMainWindow):
             if not url.isLocalFile():
                 continue
             path = Path(url.toLocalFile())
-            if path.suffix.casefold() != ".json":
+            if not is_supported_palette_file(path):
                 continue
             try:
                 if path.is_file():
@@ -702,7 +710,7 @@ class MainWindow(QMainWindow):
         if not self.data.projects:
             state = EmptyState(
                 "No projects yet",
-                "Create your first project, or import a vColor project file.",
+                "Create your first project, or import a palette file.",
                 "Create project",
             )
             state.actionTriggered.connect(self.new_project)
@@ -1018,25 +1026,18 @@ class MainWindow(QMainWindow):
         project = self.data.find_project(project_id)
         if project is None:
             return
-        suggested = f"{slugify(project.name, 'project')}.json"
+        suggested = slugify(project.name, "palette")
         path, selected_filter = QFileDialog.getSaveFileName(
             self,
             "Export project",
             suggested,
-            "JSON project (*.json);;CSS variables (*.css);;GIMP palette (*.gpl)",
+            export_filter_string(),
         )
         if not path:
             return
-        path_obj = Path(path)
-        suffix = path_obj.suffix.lower()
-        if not suffix:
-            suffix = ".css" if "CSS" in selected_filter else ".gpl" if "GIMP" in selected_filter else ".json"
-            path_obj = path_obj.with_suffix(suffix)
-        kind = suffix.lstrip(".")
+        path_obj, fmt = resolve_export_target(path, selected_filter)
         try:
-            from .palette_io import export_palette
-
-            export_palette(project, path_obj, kind)
+            export_palette(project, path_obj, fmt.id)
         except (OSError, ValueError) as exc:
             self.toast.show_message(f"Export failed: {exc}", kind="error", duration=5000)
             return
@@ -1055,13 +1056,11 @@ class MainWindow(QMainWindow):
             self,
             "Import colors",
             "",
-            "Project files (*.json *.css *.gpl *.txt);;All files (*)",
+            IMPORT_FILTER,
         )
         if not path:
             return
         try:
-            from .palette_io import import_palette
-
             colors = import_palette(Path(path))
         except (OSError, ValueError) as exc:
             self.toast.show_message(f"Import failed: {exc}", kind="error", duration=5000)

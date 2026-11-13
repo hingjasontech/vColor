@@ -47,6 +47,28 @@ class OKLCH:
     h: float
 
 
+@dataclass(frozen=True, slots=True)
+class HSB:
+    h: float
+    s: float
+    b: float
+
+
+@dataclass(frozen=True, slots=True)
+class CMYK:
+    c: float
+    m: float
+    y: float
+    k: float
+
+
+@dataclass(frozen=True, slots=True)
+class LAB:
+    l: float
+    a: float
+    b: float
+
+
 def normalize_hex(value: str) -> str:
     """Return a lowercase ``#rrggbb`` string, or raise :class:`ColorError`."""
     match = HEX_RE.match(value.strip())
@@ -217,14 +239,18 @@ CSS_NAMED_COLORS = {
     "yellowgreen": "#9acd32",
 }
 
-_FUNCTION_RE = re.compile(r"^(rgba?|hsla?|oklch)\(\s*(.*?)\s*\)$", re.IGNORECASE)
+_FUNCTION_RE = re.compile(
+    r"^(rgba?|hsla?|hsb|hsv|device-cmyk|cmyk|lab|oklch)\(\s*(.*?)\s*\)$",
+    re.IGNORECASE,
+)
 
 
 def parse_color(value: str) -> str:
     """Parse common CSS color notations and return ``#rrggbb``.
 
     Accepts hex (with or without ``#``, including alpha variants), ``rgb()``,
-    ``hsl()``, ``oklch()``, and CSS color names. Alpha values are ignored.
+    ``hsl()``, ``hsb()``/``hsv()``, ``cmyk()``/``device-cmyk()``, ``lab()``,
+    ``oklch()``, and CSS color names. Alpha values are ignored.
     """
     text = value.strip()
     if not text:
@@ -238,6 +264,12 @@ def parse_color(value: str) -> str:
             return rgb_to_hex(_parse_rgb_args(arguments))
         if function.startswith("hsl"):
             return rgb_to_hex(hsl_to_rgb(_parse_hsl_args(arguments)))
+        if function in ("hsb", "hsv"):
+            return rgb_to_hex(hsb_to_rgb(_parse_hsb_args(arguments)))
+        if function == "cmyk" or function == "device-cmyk":
+            return rgb_to_hex(cmyk_to_rgb(_parse_cmyk_args(arguments)))
+        if function == "lab":
+            return rgb_to_hex(lab_to_rgb(_parse_lab_args(arguments)))
         return rgb_to_hex(oklch_to_rgb(_parse_oklch_args(arguments)))
 
     body = text.lstrip("#")
@@ -308,6 +340,31 @@ def _parse_hsl_args(arguments: str) -> HSL:
         _parse_angle(parts[0]),
         _parse_percentage(parts[1]),
         _parse_percentage(parts[2]),
+    )
+
+
+def _parse_hsb_args(arguments: str) -> HSB:
+    parts = _split_components(arguments)
+    return HSB(
+        _parse_angle(parts[0]),
+        _parse_percentage(parts[1]),
+        _parse_percentage(parts[2]),
+    )
+
+
+def _parse_cmyk_args(arguments: str) -> CMYK:
+    parts = _split_components(arguments)
+    if len(parts) < 4:
+        raise ColorError(f"Expected four CMYK components: {arguments!r}")
+    return CMYK(*(_parse_percentage(part) for part in parts[:4]))
+
+
+def _parse_lab_args(arguments: str) -> LAB:
+    parts = _split_components(arguments)
+    return LAB(
+        _parse_number(parts[0]),
+        _parse_number(parts[1]),
+        _parse_number(parts[2]),
     )
 
 
@@ -384,6 +441,80 @@ def hsl_to_rgb(hsl: HSL) -> RGB:
     ).clamped
 
 
+def rgb_to_hsb(rgb: RGB) -> HSB:
+    r, g, b = (channel / 255.0 for channel in rgb.clamped.as_tuple())
+    high = max(r, g, b)
+    low = min(r, g, b)
+    delta = high - low
+
+    if delta == 0:
+        hue = 0.0
+    elif high == r:
+        hue = ((g - b) / delta) % 6.0
+    elif high == g:
+        hue = (b - r) / delta + 2.0
+    else:
+        hue = (r - g) / delta + 4.0
+
+    saturation = 0.0 if high == 0 else delta / high
+    return HSB(hue * 60.0, saturation, high)
+
+
+def hsb_to_rgb(hsb: HSB) -> RGB:
+    hue = hsb.h % 360.0
+    saturation = max(0.0, min(1.0, hsb.s))
+    brightness = max(0.0, min(1.0, hsb.b))
+
+    chroma = brightness * saturation
+    x = chroma * (1.0 - abs((hue / 60.0) % 2.0 - 1.0))
+    m = brightness - chroma
+
+    if hue < 60:
+        r, g, b = chroma, x, 0.0
+    elif hue < 120:
+        r, g, b = x, chroma, 0.0
+    elif hue < 180:
+        r, g, b = 0.0, chroma, x
+    elif hue < 240:
+        r, g, b = 0.0, x, chroma
+    elif hue < 300:
+        r, g, b = x, 0.0, chroma
+    else:
+        r, g, b = chroma, 0.0, x
+
+    return RGB(
+        round((r + m) * 255.0),
+        round((g + m) * 255.0),
+        round((b + m) * 255.0),
+    ).clamped
+
+
+def rgb_to_cmyk(rgb: RGB) -> CMYK:
+    r, g, b = (channel / 255.0 for channel in rgb.clamped.as_tuple())
+    black = 1.0 - max(r, g, b)
+    if black >= 1.0:
+        return CMYK(0.0, 0.0, 0.0, 1.0)
+    scale = 1.0 - black
+    return CMYK(
+        (1.0 - r - black) / scale,
+        (1.0 - g - black) / scale,
+        (1.0 - b - black) / scale,
+        black,
+    )
+
+
+def cmyk_to_rgb(cmyk: CMYK) -> RGB:
+    c = max(0.0, min(1.0, cmyk.c))
+    m = max(0.0, min(1.0, cmyk.m))
+    y = max(0.0, min(1.0, cmyk.y))
+    k = max(0.0, min(1.0, cmyk.k))
+    return RGB(
+        round((1.0 - c) * (1.0 - k) * 255.0),
+        round((1.0 - m) * (1.0 - k) * 255.0),
+        round((1.0 - y) * (1.0 - k) * 255.0),
+    ).clamped
+
+
 def _srgb_to_linear(channel: int) -> float:
     value = channel / 255.0
     if value <= 0.04045:
@@ -446,6 +577,70 @@ def oklch_to_rgb(oklch: OKLCH) -> RGB:
         _linear_to_srgb(r),
         _linear_to_srgb(g),
         _linear_to_srgb(bb),
+    )
+
+
+def _lab_f(value: float) -> float:
+    delta = 6.0 / 29.0
+    if value > delta**3:
+        return value ** (1.0 / 3.0)
+    return value / (3.0 * delta**2) + 4.0 / 29.0
+
+
+def _lab_f_inv(value: float) -> float:
+    delta = 6.0 / 29.0
+    if value > delta:
+        return value**3
+    return 3.0 * delta**2 * (value - 4.0 / 29.0)
+
+
+def rgb_to_lab(rgb: RGB) -> LAB:
+    """Convert sRGB to CIE L*a*b* using a D50 reference white."""
+    r, g, b = (_srgb_to_linear(channel) for channel in rgb.clamped.as_tuple())
+
+    x = 0.4123907993 * r + 0.3575843394 * g + 0.1804807884 * b
+    y = 0.2126390059 * r + 0.7151686788 * g + 0.0721923154 * b
+    z = 0.0193308187 * r + 0.1191947798 * g + 0.9505321522 * b
+
+    # Bradford-adapt D65 to the D50 white point used by CIE Lab.
+    x50 = 1.0478112 * x + 0.0228866 * y - 0.0501270 * z
+    y50 = 0.0295424 * x + 0.9904844 * y - 0.0170491 * z
+    z50 = -0.0092345 * x + 0.0150436 * y + 0.7521316 * z
+
+    fx = _lab_f(x50 / 0.96422)
+    fy = _lab_f(y50 / 1.0)
+    fz = _lab_f(z50 / 0.82521)
+
+    return LAB(
+        116.0 * fy - 16.0,
+        500.0 * (fx - fy),
+        200.0 * (fy - fz),
+    )
+
+
+def lab_to_rgb(lab: LAB) -> RGB:
+    """Convert CIE L*a*b* (D50) to sRGB."""
+    fy = (lab.l + 16.0) / 116.0
+    fx = fy + lab.a / 500.0
+    fz = fy - lab.b / 200.0
+
+    x50 = 0.96422 * _lab_f_inv(fx)
+    y50 = 1.0 * _lab_f_inv(fy)
+    z50 = 0.82521 * _lab_f_inv(fz)
+
+    # Bradford-adapt D50 back to D65 before the sRGB matrix.
+    x = 0.9555766 * x50 - 0.0230393 * y50 + 0.0631636 * z50
+    y = -0.0282895 * x50 + 1.0099416 * y50 + 0.0210077 * z50
+    z = 0.0122982 * x50 - 0.0204830 * y50 + 1.3299098 * z50
+
+    r = 3.2404542 * x - 1.5371385 * y - 0.4985314 * z
+    g = -0.9692660 * x + 1.8760108 * y + 0.0415560 * z
+    b = 0.0556434 * x - 0.2040259 * y + 1.0572252 * z
+
+    return RGB(
+        _linear_to_srgb(r),
+        _linear_to_srgb(g),
+        _linear_to_srgb(b),
     )
 
 

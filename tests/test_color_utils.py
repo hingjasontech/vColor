@@ -4,16 +4,22 @@ import unittest
 
 from vcolor.color_utils import (
     ColorError,
+    cmyk_to_rgb,
     contrast_grade,
     contrast_ratio,
     format_color,
     hex_to_rgb,
     hsl_to_rgb,
+    hsb_to_rgb,
+    lab_to_rgb,
     normalize_hex,
     oklch_to_rgb,
     parse_color,
+    rgb_to_cmyk,
     rgb_to_hex,
     rgb_to_hsl,
+    rgb_to_hsb,
+    rgb_to_lab,
     rgb_to_oklch,
     srgb_to_display_p3,
 )
@@ -62,6 +68,27 @@ class ParseColorTests(unittest.TestCase):
             ):
                 self.assertLessEqual(abs(first - second), 2)
 
+    def test_hsb_notation(self) -> None:
+        self.assertEqual(parse_color("hsb(120, 100%, 100%)"), "#00ff00")
+        self.assertEqual(parse_color("hsv(0, 100%, 50%)"), "#800000")
+
+    def test_cmyk_notation(self) -> None:
+        self.assertEqual(parse_color("cmyk(0%, 100%, 100%, 0%)"), "#ff0000")
+        self.assertEqual(
+            parse_color("device-cmyk(100%, 0%, 0%, 0%)"), "#00ffff"
+        )
+
+    def test_lab_notation(self) -> None:
+        for value in ("#0a84ff", "#123123", "#f05252", "#a78bfa"):
+            lab = rgb_to_lab(hex_to_rgb(value))
+            parsed = hex_to_rgb(
+                parse_color(f"lab({lab.l:.4f} {lab.a:.4f} {lab.b:.4f})")
+            )
+            for first, second in zip(
+                parsed.as_tuple(), hex_to_rgb(value).as_tuple(), strict=True
+            ):
+                self.assertLessEqual(abs(first - second), 2)
+
     def test_named_colors(self) -> None:
         self.assertEqual(parse_color("Red"), "#ff0000")
         self.assertEqual(parse_color("steelblue"), "#4682b4")
@@ -84,6 +111,25 @@ class ConversionTests(unittest.TestCase):
         for value in ("#0a84ff", "#123123", "#f05252", "#a78bfa"):
             rgb = hex_to_rgb(value)
             self.assertEqual(rgb_to_hex(hsl_to_rgb(rgb_to_hsl(rgb))), value)
+
+    def test_hsb_round_trip(self) -> None:
+        for value in ("#0a84ff", "#123123", "#f05252", "#a78bfa"):
+            rgb = hex_to_rgb(value)
+            self.assertEqual(rgb_to_hex(hsb_to_rgb(rgb_to_hsb(rgb))), value)
+
+    def test_cmyk_round_trip(self) -> None:
+        for value in ("#000000", "#ffffff", "#0a84ff", "#123123"):
+            rgb = hex_to_rgb(value)
+            self.assertEqual(rgb_to_hex(cmyk_to_rgb(rgb_to_cmyk(rgb))), value)
+
+    def test_lab_round_trip_is_close(self) -> None:
+        for value in ("#000000", "#ffffff", "#0a84ff", "#123123", "#f05252"):
+            rgb = hex_to_rgb(value)
+            converted = lab_to_rgb(rgb_to_lab(rgb))
+            for first, second in zip(
+                rgb.as_tuple(), converted.as_tuple(), strict=True
+            ):
+                self.assertLessEqual(abs(first - second), 1)
 
     def test_oklch_round_trip_is_close(self) -> None:
         for value in ("#0a84ff", "#123123", "#f05252", "#a78bfa"):

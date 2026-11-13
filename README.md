@@ -5,7 +5,7 @@
 <h1 align="center">vColor</h1>
 
 A fast, native desktop color project manager for Linux, macOS, and Windows,
-with a portable JSON project format for importing, exporting, and sharing
+with interchangeable palette formats for importing, exporting, and sharing
 colors.
 
 ![vColor screenshot](docs/screenshot.png)
@@ -16,7 +16,7 @@ colors.
 ## Documentation
 
 - [Usage](docs/USAGE.md) — features, keyboard shortcuts, and where your data lives
-- [Portable projects](docs/PROJECTS.md) — JSON format, project import/export, and drag-and-drop
+- [Palette projects](docs/PROJECTS.md) — supported formats, naming, import/export, and drag-and-drop
 - [Development](docs/DEVELOPMENT.md) — running from source, tests, and building desktop bundles
 - [AGENTS.md](AGENTS.md) — project/theme recipes for AI assistants and coding agents
 

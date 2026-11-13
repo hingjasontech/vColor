@@ -15,7 +15,7 @@ from PySide6.QtWidgets import QApplication, QDialog, QPushButton  # noqa: E402
 from vcolor import theme  # noqa: E402
 from vcolor.main_window import MainWindow  # noqa: E402
 from vcolor.models import AppData, ColorEntry, PaletteStore, Project  # noqa: E402
-from vcolor.palette_format import PortablePalette, save_palette  # noqa: E402
+from vcolor.palette_formats import export_palette, import_palette  # noqa: E402
 from vcolor.widgets import ColorListCard, ColorRow, EmptyState  # noqa: E402
 
 
@@ -355,8 +355,10 @@ class WindowSmokeTests(unittest.TestCase):
 
     def test_import_project_files_adds_project_and_supports_undo(self) -> None:
         previous_active_id = self.window.data.active_project_id
-        source = save_palette(
-            self.project_palette(), self.path.parent / "imported-theme.json"
+        source = export_palette(
+            self.project_palette(),
+            self.path.parent / "imported-theme.json",
+            "json",
         )
 
         self.window.import_project_files([source])
@@ -376,8 +378,10 @@ class WindowSmokeTests(unittest.TestCase):
         self.assertEqual(self.window.data.active_project_id, previous_active_id)
 
     def test_import_project_duplicate_name_gets_numbered_copy(self) -> None:
-        source = save_palette(
-            self.project_palette("Website"), self.path.parent / "website.json"
+        source = export_palette(
+            self.project_palette("Website"),
+            self.path.parent / "website.json",
+            "json",
         )
 
         self.window.import_project_files([source])
@@ -399,23 +403,71 @@ class WindowSmokeTests(unittest.TestCase):
     def test_import_project_dialog_reads_selected_files(self) -> None:
         from unittest.mock import patch
 
-        source = save_palette(
-            self.project_palette("Picked Theme"), self.path.parent / "picked.json"
+        source = export_palette(
+            self.project_palette("Picked Theme"),
+            self.path.parent / "picked-theme.json",
+            "json",
         )
         with patch(
             "vcolor.main_window.QFileDialog.getOpenFileNames",
-            return_value=([str(source)], "vColor project (*.json)"),
+            return_value=([str(source)], "Palette files (*.json *.css)"),
         ):
             self.window.import_project()
         self.app.processEvents()
 
         self.assertEqual(self.window.active_project.name, "Picked Theme")
 
+    def test_import_colors_appends_to_the_active_project(self) -> None:
+        from unittest.mock import patch
+
+        source = self.path.parent / "extra-colors.css"
+        source.write_text(":root { --extra: #abcdef; }\n", encoding="utf-8")
+        with patch(
+            "vcolor.main_window.QFileDialog.getOpenFileName",
+            return_value=(str(source), "Palette files (*.css)"),
+        ):
+            self.window.import_colors(self.window.active_project.id)
+        self.app.processEvents()
+
+        self.assertEqual(len(self.window.active_project.colors), 3)
+        self.assertEqual(self.window.active_project.colors[-1].hex, "#abcdef")
+
+    def test_export_project_uses_selected_filter_and_appends_suffix(self) -> None:
+        from unittest.mock import patch
+
+        target = self.path.parent / "exported-theme"
+        with patch(
+            "vcolor.main_window.QFileDialog.getSaveFileName",
+            return_value=(str(target), "CSS variables (*.css)"),
+        ):
+            self.window.export_project(self.window.active_project.id)
+        self.app.processEvents()
+
+        written = target.with_suffix(".css")
+        self.assertTrue(written.exists())
+        self.assertIn("--apple-blue: #0a84ff;", written.read_text(encoding="utf-8"))
+
+    def test_export_project_prefers_typed_suffix(self) -> None:
+        from unittest.mock import patch
+
+        target = self.path.parent / "exported-theme.ase"
+        with patch(
+            "vcolor.main_window.QFileDialog.getSaveFileName",
+            return_value=(str(target), "JSON palette (*.json)"),
+        ):
+            self.window.export_project(self.window.active_project.id)
+        self.app.processEvents()
+
+        self.assertEqual(
+            [color.hex for color in import_palette(target)],
+            ["#0a84ff", "#123123"],
+        )
+
     def test_dropped_json_file_creates_a_project(self) -> None:
         from PySide6.QtCore import QMimeData, QUrl
 
-        source = self.path.parent / "dropped.json"
-        save_palette(self.project_palette("Dropped Theme"), source)
+        source = self.path.parent / "dropped-theme.json"
+        export_palette(self.project_palette("Dropped Theme"), source, "json")
         mime = QMimeData()
         mime.setUrls([QUrl.fromLocalFile(str(source))])
 
@@ -428,9 +480,8 @@ class WindowSmokeTests(unittest.TestCase):
         self.assertTrue(source.exists())
 
     @staticmethod
-    def project_palette(name: str = "Imported Theme") -> PortablePalette:
-        return PortablePalette(
-            id="imported-theme",
+    def project_palette(name: str = "Imported Theme") -> Project:
+        return Project(
             name=name,
             colors=[
                 ColorEntry(name="Background", hex="#101014"),
