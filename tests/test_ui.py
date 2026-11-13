@@ -7,8 +7,8 @@ from pathlib import Path
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QTimer, Qt  # noqa: E402
-from PySide6.QtGui import QColor, QFont, QFontDatabase  # noqa: E402
+from PySide6.QtCore import QMimeData, QPointF, QTimer, Qt  # noqa: E402
+from PySide6.QtGui import QColor, QDropEvent, QFont, QFontDatabase  # noqa: E402
 from PySide6.QtTest import QTest  # noqa: E402
 from PySide6.QtWidgets import QApplication, QDialog, QPushButton  # noqa: E402
 
@@ -16,7 +16,13 @@ from vcolor import theme  # noqa: E402
 from vcolor.main_window import MainWindow  # noqa: E402
 from vcolor.models import AppData, ColorEntry, PaletteStore, Project  # noqa: E402
 from vcolor.palette_formats import export_palette, import_palette  # noqa: E402
-from vcolor.widgets import ColorListCard, ColorRow, EmptyState  # noqa: E402
+from vcolor.widgets import (  # noqa: E402
+    PROJECT_MIME_TYPE,
+    ColorListCard,
+    ColorRow,
+    EmptyState,
+    ProjectItem,
+)
 
 
 def sample_data() -> AppData:
@@ -555,6 +561,139 @@ class WindowSmokeTests(unittest.TestCase):
 
     def test_sidebar_project_spacing_is_compact(self) -> None:
         self.assertEqual(self.window.project_list_layout.spacing(), 6)
+
+    def test_star_moves_favorite_to_top_and_persists(self) -> None:
+        first, project, third = self.window.data.projects
+        item = self.window._project_items[project.id]
+
+        QTest.mouseClick(item.star_button, Qt.MouseButton.LeftButton)
+        self.app.processEvents()
+
+        self.assertTrue(project.favorite)
+        expected = [project.id, first.id, third.id]
+        self.assertEqual(
+            [candidate.id for candidate in self.window.data.projects], expected
+        )
+        loaded = PaletteStore(self.path).load()
+        self.assertTrue(loaded.projects[0].favorite)
+        self.assertEqual([candidate.id for candidate in loaded.projects], expected)
+        item = self.window._project_items[project.id]
+        self.assertTrue(item.star_button.is_favorite())
+
+        QTest.mouseClick(item.star_button, Qt.MouseButton.LeftButton)
+        self.app.processEvents()
+
+        self.assertFalse(project.favorite)
+        self.assertEqual(
+            [candidate.id for candidate in self.window.data.projects], expected
+        )
+        self.assertFalse(PaletteStore(self.path).load().projects[0].favorite)
+        self.assertFalse(
+            self.window._project_items[project.id].star_button.is_favorite()
+        )
+
+    def test_star_click_does_not_select_project(self) -> None:
+        active_id = self.window.data.active_project_id
+        second = self.window.data.projects[1]
+        item = self.window._project_items[second.id]
+
+        QTest.mouseClick(item.star_button, Qt.MouseButton.LeftButton)
+        self.app.processEvents()
+
+        self.assertEqual(self.window.data.active_project_id, active_id)
+        self.assertIs(self.window.data.projects[0], second)
+        self.assertTrue(second.favorite)
+
+    def test_favorite_can_still_be_reordered_after_starring(self) -> None:
+        first, second, third = self.window.data.projects
+
+        self.window.toggle_favorite(second.id)
+        self.window.reorder_project(second.id, third.id, True)
+
+        self.assertEqual(
+            [project.id for project in self.window.data.projects],
+            [first.id, third.id, second.id],
+        )
+        self.assertTrue(self.window.data.projects[-1].favorite)
+        self.assertEqual(
+            [project.id for project in PaletteStore(self.path).load().projects],
+            [first.id, third.id, second.id],
+        )
+
+    def test_favorites_are_rendered_in_sidebar(self) -> None:
+        project = self.window.data.projects[1]
+        project.favorite = True
+
+        self.window._populate_projects()
+
+        self.assertTrue(
+            self.window._project_items[project.id].star_button.is_favorite()
+        )
+
+    def test_reorder_projects_persists_order(self) -> None:
+        first, second, third = self.window.data.projects
+
+        self.window.reorder_project(first.id, third.id, True)
+        self.app.processEvents()
+
+        expected = [second.id, third.id, first.id]
+        self.assertEqual(
+            [project.id for project in self.window.data.projects], expected
+        )
+        self.assertEqual(
+            [project.id for project in PaletteStore(self.path).load().projects],
+            expected,
+        )
+        self.assertEqual(self.window.data.active_project_id, first.id)
+        self.assertTrue(self.window._project_items[first.id].property("selected"))
+
+    def test_reorder_project_before_target(self) -> None:
+        first, second, third = self.window.data.projects
+
+        self.window.reorder_project(third.id, first.id, False)
+
+        self.assertEqual(
+            [project.id for project in self.window.data.projects],
+            [third.id, first.id, second.id],
+        )
+
+    def test_reorder_project_ignores_unknown_or_self_target(self) -> None:
+        original = [project.id for project in self.window.data.projects]
+
+        self.window.reorder_project(original[0], "missing", True)
+        self.window.reorder_project(original[0], original[0], True)
+
+        self.assertEqual(
+            [project.id for project in self.window.data.projects], original
+        )
+
+    def test_project_item_drop_requests_reorder(self) -> None:
+        item = ProjectItem("target", "Target", 0)
+        item.resize(200, 42)
+        requested: list[tuple[str, str, bool]] = []
+        item.reorderRequested.connect(
+            lambda source, target, after: requested.append((source, target, after))
+        )
+        mime = QMimeData()
+        mime.setData(PROJECT_MIME_TYPE, b"source")
+        event = QDropEvent(
+            QPointF(10, item.height() - 2),
+            Qt.DropAction.MoveAction,
+            mime,
+            Qt.MouseButton.LeftButton,
+            Qt.KeyboardModifier.NoModifier,
+        )
+
+        item.dropEvent(event)
+
+        self.assertEqual(requested, [("source", "target", True)])
+        self.assertTrue(event.isAccepted())
+
+    def test_internal_project_drag_is_not_a_file_import(self) -> None:
+        mime = QMimeData()
+        mime.setData(PROJECT_MIME_TYPE, b"project-id")
+
+        self.assertEqual(self.window._project_paths(mime), [])
 
     def test_settings_update_toggle_persists(self) -> None:
         self.window.show_settings_page()

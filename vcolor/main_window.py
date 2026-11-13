@@ -660,6 +660,7 @@ class MainWindow(QMainWindow):
                 project.name,
                 len(project.colors),
                 selected=project.id == self.data.active_project_id,
+                favorite=project.favorite,
             )
             item.activated.connect(self.select_project)
             item.renameRequested.connect(self.rename_project)
@@ -667,6 +668,8 @@ class MainWindow(QMainWindow):
             item.deleteRequested.connect(self.delete_project)
             item.exportRequested.connect(self.export_project)
             item.importRequested.connect(self.import_colors)
+            item.favoriteToggled.connect(self.toggle_favorite)
+            item.reorderRequested.connect(self.reorder_project)
             self.project_list_layout.addWidget(item)
             self._project_items[project.id] = item
 
@@ -688,6 +691,37 @@ class MainWindow(QMainWindow):
             item.set_selected(item_id == project.id)
         self._persist(silent=True)
         self._render_project()
+
+    def toggle_favorite(self, project_id: str) -> None:
+        project = self.data.find_project(project_id)
+        if project is None:
+            return
+        project.favorite = not project.favorite
+        if project.favorite:
+            self.data.projects.remove(project)
+            self.data.projects.insert(0, project)
+        project.touch()
+        self._persist(silent=True)
+        self._populate_projects()
+        if project.favorite:
+            self.project_scroll.verticalScrollBar().setValue(0)
+
+    def reorder_project(self, source_id: str, target_id: str, after: bool) -> None:
+        source = self.data.find_project(source_id)
+        target = self.data.find_project(target_id)
+        if source is None or target is None or source is target:
+            return
+        source_index = self.data.projects.index(source)
+        target_index = self.data.projects.index(target)
+        if source_index == target_index:
+            return
+        self.data.projects.pop(source_index)
+        if source_index < target_index:
+            target_index -= 1
+        insert_index = target_index + (1 if after else 0)
+        self.data.projects.insert(insert_index, source)
+        self._persist(silent=True)
+        self._populate_projects()
 
     def _render_project(self) -> None:
         project = self.active_project

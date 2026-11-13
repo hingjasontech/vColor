@@ -35,6 +35,22 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(len(restored.projects), len(data.projects))
         self.assertEqual(restored.projects[0].colors[0].hex, "#0a84ff")
 
+    def test_favorite_defaults_to_false(self) -> None:
+        self.assertFalse(Project(name="One").favorite)
+        restored = AppData.from_dict({"projects": [{"name": "One", "colors": []}]})
+        self.assertFalse(restored.projects[0].favorite)
+
+    def test_favorite_round_trip(self) -> None:
+        data = AppData(projects=[Project(name="One", favorite=True)])
+        restored = AppData.from_dict(json.loads(json.dumps(data.to_dict())))
+        self.assertTrue(restored.projects[0].favorite)
+
+    def test_malformed_favorite_is_sanitized(self) -> None:
+        restored = AppData.from_dict(
+            {"projects": [{"name": "One", "favorite": "yes"}]}
+        )
+        self.assertFalse(restored.projects[0].favorite)
+
     def test_invalid_stored_hex_is_sanitized(self) -> None:
         color = ColorEntry.from_dict({"name": "Broken", "hex": "not-a-color"})
         self.assertEqual(color.hex, "#000000")

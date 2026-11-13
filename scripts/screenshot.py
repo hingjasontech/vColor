@@ -44,6 +44,7 @@ def build_data() -> AppData:
     website = Project(
         name="Website",
         colors=[ColorEntry(name=name, hex=hex_value) for name, hex_value in COLORS],
+        favorite=True,
     )
     mobile = Project(
         name="Mobile app",

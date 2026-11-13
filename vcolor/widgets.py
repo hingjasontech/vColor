@@ -5,9 +5,13 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 
-from PySide6.QtCore import QPointF, QRectF, Qt, QTimer, Signal
+from PySide6.QtCore import QMimeData, QPoint, QPointF, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import (
     QColor,
+    QDrag,
+    QDragEnterEvent,
+    QDragMoveEvent,
+    QDropEvent,
     QFont,
     QFontMetrics,
     QIcon,
@@ -18,6 +22,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QAbstractButton,
+    QApplication,
     QComboBox,
     QFrame,
     QHBoxLayout,
@@ -32,6 +37,8 @@ from PySide6.QtWidgets import (
 )
 
 from . import theme
+
+PROJECT_MIME_TYPE = "application/x-vcolor-project-id"
 
 
 def _repolish(widget: QWidget) -> None:
@@ -96,6 +103,8 @@ def draw_icon(
     rect: QRectF,
     color: QColor,
     pen_width: float = 1.7,
+    *,
+    filled: bool = False,
 ) -> None:
     """Draw a small, consistent line icon in ``rect``."""
     painter.save()
@@ -228,10 +237,95 @@ def draw_icon(
                 QPointF(cx + math.cos(angle) * s * 0.27, cy + math.sin(angle) * s * 0.27),
                 QPointF(cx + math.cos(angle) * s * 0.41, cy + math.sin(angle) * s * 0.41),
             )
+    elif kind == "star":
+        path = QPainterPath()
+        for index in range(10):
+            radius = s * (0.42 if index % 2 == 0 else 0.19)
+            angle = -math.pi / 2.0 + index * math.pi / 5.0
+            point = QPointF(cx + math.cos(angle) * radius, cy + math.sin(angle) * radius)
+            if index == 0:
+                path.moveTo(point)
+            else:
+                path.lineTo(point)
+        path.closeSubpath()
+        if filled:
+            painter.setBrush(color)
+        painter.drawPath(path)
     else:
         painter.drawEllipse(QRectF(cx - s * 0.25, cy - s * 0.25, s * 0.5, s * 0.5))
 
     painter.restore()
+
+
+class StarButton(QAbstractButton):
+    """Trailing star toggle used to mark a project as a favorite."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._favorite = False
+        self._hover = False
+        self.setFixedSize(26, 26)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self._update_accessibility()
+
+    def is_favorite(self) -> bool:
+        return self._favorite
+
+    def set_favorite(self, favorite: bool) -> None:
+        if self._favorite == favorite:
+            return
+        self._favorite = favorite
+        self._update_accessibility()
+        self.update()
+
+    def _update_accessibility(self) -> None:
+        self.setAccessibleName(
+            "Remove project from favorites" if self._favorite else "Add project to favorites"
+        )
+        self.setToolTip(
+            "Remove from favorites" if self._favorite else "Add to favorites"
+        )
+
+    def enterEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        self._hover = True
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        self._hover = False
+        self.update()
+        super().leaveEvent(event)
+
+    def paintEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        if self._hover:
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QColor(255, 255, 255, 18))
+            painter.drawEllipse(self.rect().adjusted(1, 1, -1, -1))
+
+        if self._favorite:
+            color = QColor(theme.WARNING)
+        elif self._hover:
+            color = QColor(theme.TEXT)
+        else:
+            color = QColor(theme.TEXT_DIM)
+        icon_size = 15.0
+        draw_icon(
+            painter,
+            "star",
+            QRectF(
+                (self.width() - icon_size) / 2.0,
+                (self.height() - icon_size) / 2.0,
+                icon_size,
+                icon_size,
+            ),
+            color,
+            pen_width=1.4,
+            filled=self._favorite,
+        )
 
 
 class IconButton(QAbstractButton):
@@ -590,6 +684,8 @@ class ProjectItem(QFrame):
     deleteRequested = Signal(str)
     exportRequested = Signal(str)
     importRequested = Signal(str)
+    favoriteToggled = Signal(str)
+    reorderRequested = Signal(str, str, bool)
 
     def __init__(
         self,
@@ -598,13 +694,19 @@ class ProjectItem(QFrame):
         color_count: int,
         *,
         selected: bool = False,
+        favorite: bool = False,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
         self.project_id = project_id
+        self.favorite = favorite
+        self._press_pos: QPoint | None = None
+        self._drag_started = False
+        self._drop_after: bool | None = None
         self.setObjectName("ProjectItem")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
+        self.setAcceptDrops(True)
         self.setFixedHeight(42)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip(f"{color_count} color{'s' if color_count != 1 else ''}")
@@ -612,12 +714,17 @@ class ProjectItem(QFrame):
         self.setProperty("selected", selected)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 0, 16, 0)
-        layout.setSpacing(8)
+        layout.setContentsMargins(16, 0, 8, 0)
+        layout.setSpacing(6)
         label = ElidedLabel(name)
         label.setObjectName("ProjectName")
         label.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
         layout.addWidget(label)
+
+        self.star_button = StarButton(self)
+        self.star_button.set_favorite(favorite)
+        self.star_button.clicked.connect(self._toggle_favorite)
+        layout.addWidget(self.star_button)
 
     def set_selected(self, selected: bool) -> None:
         if bool(self.property("selected")) == selected:
@@ -625,7 +732,68 @@ class ProjectItem(QFrame):
         self.setProperty("selected", selected)
         _repolish(self)
 
+    def set_favorite(self, favorite: bool) -> None:
+        self.favorite = favorite
+        self.star_button.set_favorite(favorite)
+
+    def _toggle_favorite(self) -> None:
+        self.favoriteToggled.emit(self.project_id)
+
+    def _project_mime_id(self, mime) -> str | None:  # type: ignore[no-untyped-def]
+        if not mime.hasFormat(PROJECT_MIME_TYPE):
+            return None
+        try:
+            value = bytes(mime.data(PROJECT_MIME_TYPE)).decode("utf-8")
+        except UnicodeDecodeError:
+            return None
+        return value or None
+
+    def _set_drop_after(self, after: bool) -> None:
+        if self._drop_after == after:
+            return
+        self._drop_after = after
+        self.update()
+
+    def _clear_drop_indicator(self) -> None:
+        if self._drop_after is None:
+            return
+        self._drop_after = None
+        self.update()
+
+    def mousePressEvent(self, event: QMouseEvent) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._press_pos = event.position().toPoint()
+            self._drag_started = False
+        super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
+        if (
+            self._press_pos is not None
+            and not self._drag_started
+            and event.buttons() & Qt.MouseButton.LeftButton
+            and (event.position().toPoint() - self._press_pos).manhattanLength()
+            >= QApplication.startDragDistance()
+        ):
+            self._start_drag()
+            return
+        super().mouseMoveEvent(event)
+
+    def _start_drag(self) -> None:
+        self._drag_started = True
+        mime = QMimeData()
+        mime.setData(PROJECT_MIME_TYPE, self.project_id.encode("utf-8"))
+        drag = QDrag(self)
+        drag.setMimeData(mime)
+        drag.setPixmap(self.grab())
+        if self._press_pos is not None:
+            drag.setHotSpot(self._press_pos)
+        drag.exec(Qt.DropAction.MoveAction)
+
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
+        if self._drag_started:
+            self._drag_started = False
+            self._press_pos = None
+            return
         if event.button() == Qt.MouseButton.LeftButton:
             self.activated.emit(self.project_id)
         super().mouseReleaseEvent(event)
@@ -634,14 +802,71 @@ class ProjectItem(QFrame):
         self.renameRequested.emit(self.project_id)
         super().mouseDoubleClickEvent(event)
 
+    def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+        source_id = self._project_mime_id(event.mimeData())
+        if source_id is None or source_id == self.project_id:
+            self._clear_drop_indicator()
+            event.ignore()
+            return
+        self._set_drop_after(event.position().y() > self.height() / 2.0)
+        event.setDropAction(Qt.DropAction.MoveAction)
+        event.accept()
+
+    def dragMoveEvent(self, event: QDragMoveEvent) -> None:
+        source_id = self._project_mime_id(event.mimeData())
+        if source_id is None or source_id == self.project_id:
+            self._clear_drop_indicator()
+            event.ignore()
+            return
+        self._set_drop_after(event.position().y() > self.height() / 2.0)
+        event.setDropAction(Qt.DropAction.MoveAction)
+        event.accept()
+
+    def dragLeaveEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        self._clear_drop_indicator()
+        super().dragLeaveEvent(event)
+
+    def dropEvent(self, event: QDropEvent) -> None:
+        source_id = self._project_mime_id(event.mimeData())
+        if source_id is None or source_id == self.project_id:
+            self._clear_drop_indicator()
+            event.ignore()
+            return
+        after = (
+            self._drop_after
+            if self._drop_after is not None
+            else event.position().y() > self.height() / 2.0
+        )
+        self._clear_drop_indicator()
+        event.setDropAction(Qt.DropAction.MoveAction)
+        event.accept()
+        self.reorderRequested.emit(source_id, self.project_id, after)
+
+    def paintEvent(self, event) -> None:  # type: ignore[no-untyped-def]
+        super().paintEvent(event)
+        if self._drop_after is None:
+            return
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        painter.setPen(QPen(QColor(theme.ACCENT), 2.0))
+        y = self.height() - 1.0 if self._drop_after else 1.0
+        painter.drawLine(QPointF(8, y), QPointF(self.width() - 8, y))
+
     def build_context_menu(self) -> QMenu:
         menu = QMenu(self)
+        favorite = menu.addAction(
+            "Remove from favorites" if self.favorite else "Add to favorites"
+        )
+        menu.addSeparator()
         rename = menu.addAction("Rename project")
         duplicate = menu.addAction("Duplicate project")
         export = menu.addAction("Export project...")
         import_action = menu.addAction("Import colors...")
         menu.addSeparator()
         delete = menu.addAction("Delete project")
+        favorite.triggered.connect(
+            lambda _checked=False: self.favoriteToggled.emit(self.project_id)
+        )
         rename.triggered.connect(
             lambda _checked=False: self.renameRequested.emit(self.project_id)
         )

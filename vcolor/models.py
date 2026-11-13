@@ -70,6 +70,7 @@ class Project:
     name: str
     id: str = field(default_factory=new_id)
     colors: list[ColorEntry] = field(default_factory=list)
+    favorite: bool = False
     created_at: str = field(default_factory=utc_now)
     updated_at: str = field(default_factory=utc_now)
 
@@ -81,6 +82,7 @@ class Project:
             "id": self.id,
             "name": self.name,
             "colors": [color.to_dict() for color in self.colors],
+            "favorite": self.favorite,
             "created_at": self.created_at,
             "updated_at": self.updated_at,
         }
@@ -96,6 +98,7 @@ class Project:
             id=str(raw.get("id") or new_id()),
             name=str(raw.get("name") or "Untitled project"),
             colors=colors,
+            favorite=raw.get("favorite") is True,
             created_at=str(raw.get("created_at") or utc_now()),
             updated_at=str(raw.get("updated_at") or utc_now()),
         )

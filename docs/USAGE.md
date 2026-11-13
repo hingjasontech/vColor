@@ -3,6 +3,9 @@
 ## Features
 
 - Multiple projects with rename, delete, and undo.
+- Drag projects in the sidebar to reorder them. Star a project to mark it as a
+  favorite and move it to the top; you can still drag it elsewhere afterward.
+  Order and favorites are saved automatically.
 - Add, edit, copy, and delete colors.
 - Enter colors as hex, `rgb()`, `hsl()`, `hsb()`/`hsv()`, `cmyk()`, `lab()`,
   `oklch()`, or CSS names like `tomato` — vColor normalizes them to hex
@@ -96,8 +99,11 @@ Under **About**, **Open GitHub** opens
 These are defaults; you can change or disable any shortcut under **Settings →
 Keyboard → Keyboard shortcuts**.
 
-Double-click a project to rename it. Right-click a project to duplicate it,
-export it, or import colors into it.
+Double-click a project to rename it. Drag a project up or down in the sidebar
+to reorder it, and click the star on the right of a project row to favorite it.
+Favoriting moves the project to the top; drag it elsewhere afterward if you
+prefer. Right-click a project to duplicate it, export it, import colors into it,
+or toggle its favorite state.
 Click a color row to copy its value in the current display format; use the
 copy, pencil, or trash buttons on the row to copy, edit, or delete it. You can
 also right-click a color for **Edit**, **Copy**, and **Delete**.
