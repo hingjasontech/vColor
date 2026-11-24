@@ -393,13 +393,39 @@ class SettingsPage(QWidget):
             )
         )
 
+        self.accent_controls = QWidget()
+        accent_layout = QHBoxLayout(self.accent_controls)
+        accent_layout.setContentsMargins(0, 0, 0, 0)
+        accent_layout.setSpacing(2)
+
         self.accent_button = AccentColorButton(self._accent_color)
         self.accent_button.clicked.connect(self._choose_accent_color)
+        accent_layout.addWidget(
+            self.accent_button, 0, Qt.AlignmentFlag.AlignVCenter
+        )
+
+        self.reset_accent_button = IconButton(
+            "reset",
+            size=30,
+            icon_size=17,
+            color=theme.TEXT_MUTED,
+            hover_color=theme.TEXT,
+        )
+        self.reset_accent_button.setToolTip("Reset to default blue")
+        self.reset_accent_button.setAccessibleName(
+            "Reset accent color to the default blue"
+        )
+        self.reset_accent_button.clicked.connect(self._reset_accent_color)
+        accent_layout.addWidget(
+            self.reset_accent_button, 0, Qt.AlignmentFlag.AlignVCenter
+        )
+        self._update_reset_button()
+
         group.add_row(
             SettingsRow(
                 "Accent color",
                 "Used for highlights, links, and controls across vColor.",
-                self.accent_button,
+                self.accent_controls,
             )
         )
 
@@ -511,13 +537,26 @@ class SettingsPage(QWidget):
         self.set_accent_color(value)
         self.accentColorChanged.emit(value)
 
+    def _reset_accent_color(self) -> None:
+        self.set_use_system_accent(False)
+        self.set_accent_color(DEFAULT_ACCENT)
+        self.accentColorChanged.emit(DEFAULT_ACCENT)
+
     def set_use_system_accent(self, enabled: bool) -> None:
         with QSignalBlocker(self.system_accent_switch):
             self.system_accent_switch.setChecked(enabled)
+        self._update_reset_button()
 
     def set_accent_color(self, value: str) -> None:
         self._accent_color = value
         self.accent_button.set_color(value)
+        self._update_reset_button()
+
+    def _update_reset_button(self) -> None:
+        self.reset_accent_button.setEnabled(
+            self.system_accent_switch.isChecked()
+            or self._accent_color != DEFAULT_ACCENT
+        )
 
     def set_accent(self, use_system: bool, value: str) -> None:
         self.set_use_system_accent(use_system)

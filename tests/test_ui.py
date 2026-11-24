@@ -768,6 +768,33 @@ class WindowSmokeTests(unittest.TestCase):
         self.assertFalse(loaded.use_system_accent)
         self.assertEqual(loaded.accent_color, "#123456")
 
+    def test_reset_accent_restores_default_blue(self) -> None:
+        from unittest.mock import patch
+
+        with patch(
+            "vcolor.main_window.system_accent_color", return_value="#3a944a"
+        ):
+            self.window.set_data(AppData(use_system_accent=True))
+        self.window.show_settings_page()
+        self.assertTrue(self.window.settings_page.reset_accent_button.isEnabled())
+        self.assertEqual(self.window.settings_page.accent_button.color(), "#3a944a")
+
+        self.window.settings_page.reset_accent_button.click()
+        self.app.processEvents()
+
+        self.assertFalse(self.window.data.use_system_accent)
+        self.assertFalse(self.window.settings_page.system_accent_switch.isChecked())
+        self.assertEqual(theme.DEFAULT_ACCENT, "#3584e4")
+        self.assertEqual(self.window.data.accent_color, theme.DEFAULT_ACCENT)
+        self.assertEqual(theme.ACCENT, theme.DEFAULT_ACCENT)
+        self.assertEqual(
+            self.window.settings_page.accent_button.color(), theme.DEFAULT_ACCENT
+        )
+        self.assertFalse(self.window.settings_page.reset_accent_button.isEnabled())
+        loaded = PaletteStore(self.path).load()
+        self.assertFalse(loaded.use_system_accent)
+        self.assertEqual(loaded.accent_color, theme.DEFAULT_ACCENT)
+
     def test_settings_source_button_opens_github(self) -> None:
         from unittest.mock import patch
 

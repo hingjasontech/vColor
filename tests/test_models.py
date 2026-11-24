@@ -80,10 +80,10 @@ class ModelTests(unittest.TestCase):
     def test_accent_defaults_to_following_the_system(self) -> None:
         data = AppData()
         self.assertTrue(data.use_system_accent)
-        self.assertEqual(data.accent_color, "#477eeb")
+        self.assertEqual(data.accent_color, "#3584e4")
         restored = AppData.from_dict({"projects": []})
         self.assertTrue(restored.use_system_accent)
-        self.assertEqual(restored.accent_color, "#477eeb")
+        self.assertEqual(restored.accent_color, "#3584e4")
 
     def test_accent_settings_round_trip(self) -> None:
         data = AppData(use_system_accent=False, accent_color="#123456")
@@ -100,7 +100,7 @@ class ModelTests(unittest.TestCase):
             }
         )
         self.assertTrue(restored.use_system_accent)
-        self.assertEqual(restored.accent_color, "#477eeb")
+        self.assertEqual(restored.accent_color, "#3584e4")
 
     def test_update_settings_round_trip(self) -> None:
         data = AppData(

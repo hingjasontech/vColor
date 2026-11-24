@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 HEX_RE = re.compile(r"^#?([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$")
 DISPLAY_FORMATS = ("HEX", "RGB", "HSL", "OKLCH")
-DEFAULT_ACCENT = "#477eeb"
+DEFAULT_ACCENT = "#3584e4"  # GNOME Blue
 
 
 class ColorError(ValueError):

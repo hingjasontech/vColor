@@ -237,6 +237,37 @@ def draw_icon(
                 QPointF(cx + math.cos(angle) * s * 0.27, cy + math.sin(angle) * s * 0.27),
                 QPointF(cx + math.cos(angle) * s * 0.41, cy + math.sin(angle) * s * 0.41),
             )
+    elif kind == "reset":
+        radius = s * 0.30
+        arc = QRectF(cx - radius, cy - radius, radius * 2, radius * 2)
+        start_angle = 115.0
+        sweep = 290.0
+        path = QPainterPath()
+        path.arcMoveTo(arc, start_angle)
+        path.arcTo(arc, start_angle, sweep)
+        painter.drawPath(path)
+
+        end_angle = math.radians(start_angle + sweep)
+        tip = QPointF(
+            cx + math.cos(end_angle) * radius,
+            cy - math.sin(end_angle) * radius,
+        )
+        direction = QPointF(-math.sin(end_angle), -math.cos(end_angle))
+        arrow_length = s * 0.19
+        for offset in (-0.55, 0.55):
+            cos_offset = math.cos(offset)
+            sin_offset = math.sin(offset)
+            back = QPointF(
+                -(direction.x() * cos_offset - direction.y() * sin_offset),
+                -(direction.x() * sin_offset + direction.y() * cos_offset),
+            )
+            painter.drawLine(
+                tip,
+                QPointF(
+                    tip.x() + back.x() * arrow_length,
+                    tip.y() + back.y() * arrow_length,
+                ),
+            )
     elif kind == "star":
         path = QPainterPath()
         for index in range(10):

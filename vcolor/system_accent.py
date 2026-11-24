@@ -16,7 +16,7 @@ from .color_utils import ColorError, DEFAULT_ACCENT, normalize_hex
 FALLBACK_ACCENT = DEFAULT_ACCENT
 
 GNOME_ACCENTS = {
-    "blue": "#3584e4",
+    "blue": DEFAULT_ACCENT,
     "teal": "#2190a4",
     "green": "#3a944a",
     "yellow": "#c88800",
