@@ -348,6 +348,37 @@ class WindowSmokeTests(unittest.TestCase):
         self.app.processEvents()
         self.assertTrue(self.window.update_banner.isVisible())
 
+    def test_manual_check_reports_available_release(self) -> None:
+        from unittest.mock import patch
+
+        from PySide6.QtNetwork import QNetworkReply
+
+        from vcolor.updater import UpdateChecker
+
+        class FakeReply:
+            def readAll(self) -> bytes:
+                return (
+                    b'{"tag_name": "v9.9.9", "name": "vColor 9.9.9",'
+                    b' "html_url": "https://example.com/9.9.9",'
+                    b' "draft": false, "prerelease": false}'
+                )
+
+            def error(self):
+                return QNetworkReply.NetworkError.NoError
+
+            def deleteLater(self) -> None:
+                pass
+
+        checker = UpdateChecker(self.window.version)
+        checker.updateAvailable.connect(self.window._on_update_available)
+        checker.checkFinished.connect(self.window._on_update_check_finished)
+        self.window._manual_update_check = True
+        with patch.object(self.window.toast, "show_message") as show:
+            checker._handle_reply(FakeReply())
+
+        show.assert_called_once()
+        self.assertIn("9.9.9", show.call_args.args[0])
+
     def test_import_button_sits_above_settings(self) -> None:
         self.assertEqual(self.window.import_button.text(), "Import project")
         self.assertTrue(self.window.import_button.isVisible())

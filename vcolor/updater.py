@@ -140,6 +140,8 @@ class UpdateChecker(QObject):
         if release is None:
             self.checkFinished.emit(False)
             return
-        self.checkFinished.emit(True)
         if is_newer(release.version, self.current_version):
             self.updateAvailable.emit(release)
+        # Finish last: the finish handler reports the result, so the release
+        # must already be visible to it.
+        self.checkFinished.emit(True)
