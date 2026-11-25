@@ -79,9 +79,10 @@ automatically.
 
 Under **Appearance**, vColor follows your operating system's accent color by
 default. Turn off **Follow system accent color**, or click the color swatch, to
-pick a custom accent. The reset button next to the swatch restores the default
-GNOME blue and turns off system following. If the system color cannot be
-detected, vColor uses `#3584e4`.
+pick a custom accent. When the active accent is not the default, a reset button
+appears to the left of the swatch; it restores the default GNOME blue and turns
+off system following. If the system color cannot be detected, vColor uses
+`#3584e4`.
 
 Under **About**, **Open GitHub** opens
 [the vColor source code](https://github.com/hingjasontech/vColor).

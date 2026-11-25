@@ -398,12 +398,6 @@ class SettingsPage(QWidget):
         accent_layout.setContentsMargins(0, 0, 0, 0)
         accent_layout.setSpacing(2)
 
-        self.accent_button = AccentColorButton(self._accent_color)
-        self.accent_button.clicked.connect(self._choose_accent_color)
-        accent_layout.addWidget(
-            self.accent_button, 0, Qt.AlignmentFlag.AlignVCenter
-        )
-
         self.reset_accent_button = IconButton(
             "reset",
             size=30,
@@ -419,7 +413,13 @@ class SettingsPage(QWidget):
         accent_layout.addWidget(
             self.reset_accent_button, 0, Qt.AlignmentFlag.AlignVCenter
         )
-        self._update_reset_button()
+
+        self.accent_button = AccentColorButton(self._accent_color)
+        self.accent_button.clicked.connect(self._choose_accent_color)
+        accent_layout.addWidget(
+            self.accent_button, 0, Qt.AlignmentFlag.AlignVCenter
+        )
+        self._update_reset_visibility()
 
         group.add_row(
             SettingsRow(
@@ -545,18 +545,15 @@ class SettingsPage(QWidget):
     def set_use_system_accent(self, enabled: bool) -> None:
         with QSignalBlocker(self.system_accent_switch):
             self.system_accent_switch.setChecked(enabled)
-        self._update_reset_button()
+        self._update_reset_visibility()
 
     def set_accent_color(self, value: str) -> None:
         self._accent_color = value
         self.accent_button.set_color(value)
-        self._update_reset_button()
+        self._update_reset_visibility()
 
-    def _update_reset_button(self) -> None:
-        self.reset_accent_button.setEnabled(
-            self.system_accent_switch.isChecked()
-            or self._accent_color != DEFAULT_ACCENT
-        )
+    def _update_reset_visibility(self) -> None:
+        self.reset_accent_button.setVisible(self._accent_color != DEFAULT_ACCENT)
 
     def set_accent(self, use_system: bool, value: str) -> None:
         self.set_use_system_accent(use_system)

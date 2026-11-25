@@ -776,7 +776,7 @@ class WindowSmokeTests(unittest.TestCase):
         ):
             self.window.set_data(AppData(use_system_accent=True))
         self.window.show_settings_page()
-        self.assertTrue(self.window.settings_page.reset_accent_button.isEnabled())
+        self.assertFalse(self.window.settings_page.reset_accent_button.isHidden())
         self.assertEqual(self.window.settings_page.accent_button.color(), "#3a944a")
 
         self.window.settings_page.reset_accent_button.click()
@@ -790,7 +790,7 @@ class WindowSmokeTests(unittest.TestCase):
         self.assertEqual(
             self.window.settings_page.accent_button.color(), theme.DEFAULT_ACCENT
         )
-        self.assertFalse(self.window.settings_page.reset_accent_button.isEnabled())
+        self.assertTrue(self.window.settings_page.reset_accent_button.isHidden())
         loaded = PaletteStore(self.path).load()
         self.assertFalse(loaded.use_system_accent)
         self.assertEqual(loaded.accent_color, theme.DEFAULT_ACCENT)
